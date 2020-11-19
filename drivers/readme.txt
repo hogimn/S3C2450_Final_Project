@@ -1,4 +1,8 @@
-# create device file on target board (mds2450)
+#######################
+# kernel-level driver #
+#######################
+
+# create device file on target board (MDS2450)
 mknod /dev/mds2450_sg90 c 30 0
 
 # arch/arm/mach-s3c2416/mach-mds2450.c
@@ -41,3 +45,14 @@ config MDS2450_DHT11
 obj-$(CONFIG_MDS2450_DHT11) += mds2450_dht11.o
 
 # set each config to built-in[*] using make menuconfig
+
+#####################
+# User-level driver #
+#####################
+
+# MDS2450 board includes USB 1.1 host.
+# From test experiments, I found that only less than or equal 
+# to 176x144 resolution is supported.
+# The default image size with that resolution is too small.
+# So small trick is used.
+# That is, the image is stretched out to fit in LCD on MDS2450.
