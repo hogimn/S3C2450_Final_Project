@@ -19,12 +19,17 @@ static struct platform_device mds2450_device_sg90 = {
     .name = "mds2450_sg90"
 };
 
+static struct platform_device mds2450_device_led_onboard = { 
+    .name = "mds2450_led_onboard"
+};
+
 static struct platform_device *mds2450_devices[] __initdata = { 
 
     ...
 
     &mds2450_device_dht11,
     &mds2450_device_sg90,
+    &mds2450_device_led_onboard,
 };
 ```
 
@@ -36,10 +41,18 @@ config MDS2450_SG90
     default y
     help
         mds2450 board sg90 driver
+
+config MDS2450_LED_ONBOARD
+    tristate "MDS2450 On-board LED driver"
+    depends on MACH_MDS2450
+    default y
+    help
+        mds2450 board on-board LED driver
 ```
 3. drivers/char/Makefile
 ```
 obj-$(CONFIG_MDS2450_SG90) += mds2450_sg90.o
+obj-$(CONFIG_MDS2450_LED_ONBOARD) += mds2450_led_onboard.o
 ```
 4. drivers/misc/Kconfig
 ```
