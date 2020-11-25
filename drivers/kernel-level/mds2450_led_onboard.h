@@ -1,0 +1,14 @@
+#ifndef __MDS2450_LED_ONBOARD__
+#define __MDS2450_LED
+
+#define LED_ONBOARD_MAGIC 'l'
+#define LED_ONBOARD_MAXNR 3
+
+#define LED_ONBOARD_OFF    _IO(LED_ONBOARD_MAGIC, 0)
+#define LED_ONBOARD_ON     _IO(LED_ONBOARD_MAGIC, 1)
+#define LED_ONBOARD_TOGGLE _IO(LED_ONBOARD_MAGIC, 2)
+
+#define LED_ONBOARD_MAJOR 31
+#define LED_ONBOARD_DEV_PATH "/dev/mds2450_led_onboard"
+
+#endif
