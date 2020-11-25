@@ -17,5 +17,8 @@ struct pwm_duty_t
 #define SG90_PWM_DUTYRATE _IOW(SG90_PWM_IOCTL_MAGIC, 2, struct pwm_duty_t)
 #define SG90_PWM_IOCTL_MAXNR 3
 
+#define SG90_PWM_PATH "/dev/mds2450_sg90"
+#define SG90_PWM_MAJOR 30
+
 #endif
 

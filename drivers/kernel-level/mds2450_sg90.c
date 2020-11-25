@@ -9,7 +9,6 @@
 #include <linux/pwm.h>
 #include "mds2450_sg90.h"
 
-#define SG90_MAJOR 30
 #define DEVICE_NAME "mds2450_sg90"
 #define PRINTK_FAIL printk("%s[%d]: failed\n", __FUNCTION__, __LINE__)
 
@@ -20,6 +19,12 @@ static long SG90_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
     int ret;
     struct pwm_duty_t pwm_duty;
+
+    if (_IOC_TYPE(cmd) != SG90_PWM_MAJOR ||
+        _IOC_NR(cmd) >= SG90_PWM_IOCTL_MAXNR)
+    {
+        return -EINVAL; 
+    }
 
     switch (cmd)
     {
@@ -90,14 +95,14 @@ static int __devinit SG90_probe(struct platform_device *pdev)
     s3c_gpio_cfgpin(S3C2410_GPB(2), S3C_GPIO_SFN(2));
     s3c_gpio_setpull(S3C2410_GPB(2), S3C_GPIO_PULL_UP);
 
-    ret = register_chrdev(SG90_MAJOR, servo_name, &SG90_fops);
+    ret = register_chrdev(SG90_PWM_MAJOR, servo_name, &SG90_fops);
 
     return ret;
 }
 
 static int __devexit SG90_remove(struct platform_device *pdev)
 {
-    unregister_chrdev(SG90_MAJOR, servo_name);
+    unregister_chrdev(SG90_PWM_MAJOR, servo_name);
     return 0;
 }
 
