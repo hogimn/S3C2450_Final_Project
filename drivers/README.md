@@ -54,11 +54,11 @@ config MDS2450_DHT11
 ```
 obj-$(CONFIG_MDS2450_DHT11) += mds2450_dht11.o
 ```
-6. Build and deploy to target board via NFS.
+6. Build and install to kernel directory.
 ```
 cd kernel-level
 make
-make deploy
+make install
 ```
 7. Set each driver config to built-in[*].
 ```
