@@ -8,6 +8,7 @@
 #include <signal.h>
 #include <linux/kdev_t.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include "mds2450_led_onboard.h"
 
 #define GPG4    4
@@ -26,7 +27,6 @@ static int cur_led = GPG4;
 
 int main(void)
 {
-    int i;
     int flags = 0;
 
     mknod(LED_ONBOARD_DEV_PATH, S_IRWXU|S_IRWXG|S_IFCHR,
@@ -64,7 +64,6 @@ void stop_handler(int signum)
 
 void interval_expired(int id)
 {
-    int flags = 0;
     struct timespec rtclock_time;
 
     clock_gettime(CLOCK_REALTIME, &rtclock_time);
