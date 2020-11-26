@@ -1,5 +1,4 @@
-NAME	:= test_c270_live
-CC		:=arm-none-linux-gnueabi-gcc
+CC		:= arm-none-linux-gnueabi-gcc
 
 BUILD	:= build
 SOURCE	:= .
@@ -7,13 +6,13 @@ SOURCE	:= .
 SOURCES	:= $(shell find $(SOURCE) -name '*.c')
 OBJECTS	:= $(addprefix $(BUILD)/,$(SOURCES:%.c=%.o))
 
-CFLAGS	:= -Wall -g
+CFLAGS	:= -Wall -g -I../kernel-level/
 LDFLAGS	:= -lc 
 
-all: C270_LIB
+all: DRIVERS_LIB
 
-C270_LIB: $(OBJECTS)
-	ar -rc $(BUILD)/libc270.a $(OBJECTS)
+DRIVERS_LIB: $(OBJECTS)
+	ar -rc $(BUILD)/libdrivers.a $(OBJECTS)
 	
 
 $(BUILD)/%.o: %.c
@@ -22,7 +21,7 @@ $(BUILD)/%.o: %.c
 	@$(CC) $(CFLAGS) -I$(dir $<) -c $< -o $@
 
 clean:
-	@rm -rf $(BUILD) $(NAME)
+	@rm -rf $(BUILD)
 
 deploy:
 	cp live-framebuffer /nfsroot/root
