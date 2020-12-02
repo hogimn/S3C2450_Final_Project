@@ -20,7 +20,7 @@ static long SG90_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
     int ret;
     struct pwm_duty_t pwm_duty;
 
-    if (_IOC_TYPE(cmd) != SG90_PWM_MAJOR ||
+    if (_IOC_TYPE(cmd) != SG90_PWM_IOCTL_MAGIC ||
         _IOC_NR(cmd) >= SG90_PWM_IOCTL_MAXNR)
     {
         return -EINVAL; 
