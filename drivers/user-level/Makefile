@@ -22,6 +22,3 @@ $(BUILD)/%.o: %.c
 
 clean:
 	@rm -rf $(BUILD)
-
-deploy:
-	cp live-framebuffer /nfsroot/root
