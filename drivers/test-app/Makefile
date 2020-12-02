@@ -1,7 +1,7 @@
 CDIR := /usr/local/arm/4.4.1/bin
 CC := $(CDIR)/arm-none-linux-gnueabi-gcc
 APP := test_dht11 test_sg90 test_c270 test_led_onboard
-CFLAGS := -Wall -O0 -I../kernel-level -I../user-level
+CFLAGS := -Wall -O0 -I../kernel-level -I../user-level/inc
 LDFLAGS := -L../user-level/build -ldrivers
 
 all:

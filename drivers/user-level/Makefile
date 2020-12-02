@@ -6,7 +6,7 @@ SOURCE	:= .
 SOURCES	:= $(shell find $(SOURCE) -name '*.c')
 OBJECTS	:= $(addprefix $(BUILD)/,$(SOURCES:%.c=%.o))
 
-CFLAGS	:= -Wall -g -I../kernel-level/
+CFLAGS	:= -Wall -g -I../kernel-level/ -Iinc
 LDFLAGS	:= -lc 
 
 all: DRIVERS_LIB
