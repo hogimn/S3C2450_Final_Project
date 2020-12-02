@@ -8,6 +8,7 @@ CF := -Wall -O0
 MISC_SRC := mds2450_dht11.c
 CHAR_SRC := mds2450_sg90.c mds2450_sg90.h \
 		    mds2450_led_onboard.c mds2450_led_onboard.h
+PWD := $(shell pwd)
 
 all:
 	make -C $(KDIR) SUBDIRS=$(PWD) modules
