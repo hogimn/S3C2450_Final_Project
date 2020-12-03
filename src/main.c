@@ -175,7 +175,7 @@ void transfer_sensor_data(int sd)
     char str_temp[3];
     int rc;
 
-    /* loop until socket is connected */
+    /* loop while client is connected */
     while (1)
     {
         rc = temphumid_read(humitemp); 
