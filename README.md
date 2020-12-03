@@ -9,11 +9,9 @@
 │   │   └── rtl8188C_8192C_usb_linux_v4.0.2_9000.20130911
 │   │       ├── ...
 │   ├── lib
-│   │   ├── build
 │   │   └── inc
 │   └── test-app
 ├── lib
-│   ├── build
 │   └── inc
 ├── samples
 └── src
@@ -32,7 +30,7 @@ Directory | Explan.
 
 ## Steps to build project ##
 ### 1. U-boot ###
-In U-boot terminal, add following setting.
+In U-boot terminal, add following settings.
 ```
 set bootargs "root=/dev/nfs rw nfsroot=192.168.100.2:/nfsroot ip=192.168.100.102:192.168.100.2:192.168.100.1:255.255.255.0::eth0:off:netmask=255.255.255.0 console=ttySAC1,115200n81"
 set ipaddr 192.168.100.102
@@ -47,7 +45,7 @@ network interface ip address which is connected to your MDS2450 board is to be 1
 ### 2. Modify kernel source code to use platform device driver ###
 Refer to [here](https://github.com/hogimn/MDS-Embedded-Systems-Final-Project/tree/main/drivers).
 
-### 3. build and deploy ###
+### 3. Build and deploy ###
 In the top directory of project,
 ```
 make
@@ -88,7 +86,7 @@ cd /root/
 ```
 If it loops log messages endlessly, it is pretty likely that you mistyped SSID or password in wpa_passphrase.
 
-test ping 
+Test ping 
 ```
 ping 192.168.0.1
 ```
