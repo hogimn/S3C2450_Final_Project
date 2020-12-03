@@ -82,10 +82,10 @@ make menuconfig
 make
 ```
 
-### 2. user-level ###
+### 2. lib ###
 1. Build static library
 ```
-cd user-level
+cd lib
 make
 ```
 
