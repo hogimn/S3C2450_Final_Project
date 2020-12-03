@@ -26,4 +26,4 @@ deploy:
 	make -C ../drivers/kernel-level/ deploy
 	make -C ../drivers/test-app/     deploy
 	make -C ../samples/              deploy
-	cp main /nfsroot/root
+	cp -r main music /nfsroot/root
