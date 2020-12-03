@@ -4,7 +4,7 @@
 Directory | Explan.
 ----------|------------
 ***kernel-level*** | Platform Device Driver Code
-***user-level*** | Library Wapper for Device Driver
+***lib*** | Wrapper Library for Device Driver
 ***test-app*** | Sample App. to test each driver
 
 ### 1. kernel-level ###

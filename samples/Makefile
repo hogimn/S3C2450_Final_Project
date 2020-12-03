@@ -1,7 +1,7 @@
 CC:=arm-none-linux-gnueabi-gcc
 CFLAGS:=-Wall -O0
-LDFLAGS:=-L../drivers/user-level/build -lpthread -ldrivers
-INCLUDE:=-I../drivers/user-level/inc -I../drivers/kernel-level/
+LDFLAGS:=-L../drivers/lib/build -lpthread -ldrivers
+INCLUDE:=-I../drivers/lib/inc -I../drivers/kernel-level/
 SAMPLES:= samples_temphumid samples_servo
 
 all: 

@@ -21,4 +21,4 @@ install:
 	cp $(CHAR_SRC) /work/linux/drivers/char/
 
 deploy:
-	cp *.ko /nfsroot/root
+	cp -r *.ko rtl8192cu /nfsroot/root

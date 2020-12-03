@@ -1,12 +1,12 @@
 CC=arm-none-linux-gnueabi-gcc
-LDFLAGS=-L/home/hogi/MDS-Embedded-Systems-Final-Project/drivers/user-level/build/ \
+LDFLAGS=-L/home/hogi/MDS-Embedded-Systems-Final-Project/drivers/lib/build/ \
 		-L../lib/build \
 	    -lpthread -ldrivers -lutils
-INCLUDE=-I/home/hogi/MDS-Embedded-Systems-Final-Project/drivers/user-level/inc \
+INCLUDE=-I/home/hogi/MDS-Embedded-Systems-Final-Project/drivers/lib/inc \
         -I/home/hogi/MDS-Embedded-Systems-Final-Project/drivers/kernel-level/ \
         -I../lib/inc
 all: main.c 
-	make -C ../drivers/user-level/
+	make -C ../drivers/lib/
 	make -C ../drivers/kernel-level/
 	make -C ../drivers/test-app/
 	make -C ../lib/
@@ -14,7 +14,7 @@ all: main.c
 	$(CC) $(INCLUDE) -Wall -o main main.c $(LDFLAGS)
 
 clean:
-	make -C ../drivers/user-level/ 	 clean
+	make -C ../drivers/lib/ 	 clean
 	make -C ../drivers/kernel-level/ clean
 	make -C ../drivers/test-app/     clean
 	make -C ../lib/					 clean
@@ -22,7 +22,7 @@ clean:
 	rm -rf main
 
 deploy:
-#	make -C ../drivers/user-level/   deploy
+#	make -C ../drivers/lib/   deploy
 	make -C ../drivers/kernel-level/ deploy
 	make -C ../drivers/test-app/     deploy
 	make -C ../samples/              deploy
