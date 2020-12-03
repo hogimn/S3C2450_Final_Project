@@ -64,14 +64,14 @@ The password is used to generate PSK (pre-shared key).
 cd /nfsroot/root/
 ```
 
-In "rtl_init" file,
+In "rtl_init" script,
 change the ip address to your own to avoid address conflict.
 ```
 ifconfig wlan0 192.168.0.210 -> ifconfig wlan0 192.168.0.x
 ```
 
 I assumed that your network id is 192.168.0.x.
-If not, modify rtl8192cu_init file like
+If not, modify rtl_init script like
 ```
 ifconfig wlan0 "your.network.id.hostid"
 ```
