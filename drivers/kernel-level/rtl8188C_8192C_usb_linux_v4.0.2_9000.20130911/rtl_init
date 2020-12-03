@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# on your host
+# cd /nfsroot/root
+# wpa_passphrase "your ssid" "password"  > wificonf.conf
+
+insmod 8192cu.ko
+sleep 2
+ifconfig wlan0 up
+sleep 2
+wpa_supplicant -iwlan0 -Dwext -c./wificonf.conf &
+sleep 10
+# change ip address to 192.168.0.x where x is other than 210
+# to avoid confliction
+ifconfig wlan0 192.168.0.210
