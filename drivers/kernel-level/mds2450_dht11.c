@@ -1,3 +1,9 @@
+/*
+	################################################
+	#		HUMIDITY & TEMP. SENSOR : DHT11		   #
+	################################################
+*/
+
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -185,27 +191,44 @@ static struct miscdevice misc = {
 
 static int __devinit DHT11_probe(struct platform_device *pdev)
 {
-    int ret;
 
     s3c2410_gpio_cfgpin(S3C2410_GPG(1), S3C_GPIO_SFN(1));
     s3c2410_gpio_setpin(S3C2410_GPG(1), 1);
 
-    ret = misc_register(&misc);
-    return ret;
+	printk(DEVICE_NAME" probe\n");
+    return 0;
 }
 
 static int __devexit DHT11_remove(struct platform_device *pdev)
 {
-    int ret;
-    ret = misc_deregister(&misc);
-    return ret;
+   
+	gpio_free(S3C2410_GPG(1));
+	
+	printk(DEVICE_NAME "removed\n");
+	
+    return 0;
 }
+
+
+static void release_pdev(struct device * dev){ 
+    dev->parent     = NULL;
+}
+
+static struct platform_device pdev  =
+{
+    .name   = DEVICE_NAME,
+    .id     = -1, 
+    .dev    = { 
+        .release    = release_pdev,
+    },  
+};
+
 
 static struct platform_driver DHT11_device_driver = {
     .probe      = DHT11_probe,
     .remove     = __devexit_p(DHT11_remove),
     .driver     = {
-        .name   = "mds2450_dht11",
+        .name   = DEVICE_NAME,
         .owner  = THIS_MODULE,
     }
 };
@@ -213,17 +236,32 @@ static struct platform_driver DHT11_device_driver = {
 static int __init DHT11_init(void)
 {
     int ret;
+	
+	misc_register(&misc);
 
     ret = platform_driver_register(&DHT11_device_driver);
-    printk(KERN_DEBUG DEVICE_NAME " initialized\n");
-
+    
+	if(!ret){
+        printk("platform_driver initiated  = %d \n", ret);
+        ret = platform_device_register(&pdev);
+        printk("platform_device_result = %d \n", ret);
+        if(ret)
+            platform_driver_unregister(&DHT11_device_driver);
+    }
+	
+	printk(KERN_DEBUG DEVICE_NAME " initialized\n");
+	
+	 
     return ret;
 }
 
 static void __exit DHT11_exit(void)
 {
+	misc_deregister(&misc);
+	platform_device_unregister(&pdev);
     platform_driver_unregister(&DHT11_device_driver);
-    printk(KERN_DEBUG DEVICE_NAME " exited\n");
+    
+	printk(KERN_DEBUG DEVICE_NAME " exited\n");
 }
 
 module_init(DHT11_init);
