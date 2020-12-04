@@ -1,6 +1,6 @@
 obj-m := mds2450_dht11.o mds2450_sg90.o mds2450_led_onboard.o \
 		 mds2450_mg995.o mds2450_szh_rlbg_012.o \
-		 mds2450_leadcool120.o
+		 mds2450_leadcool120.o mds2450_szh_ssbh_040.o \
 
 ccflags-y := -Wall
 
