@@ -1,9 +1,9 @@
 CC=arm-none-linux-gnueabi-gcc
-LDFLAGS=-L/home/hogi/MDS-Embedded-Systems-Final-Project/drivers/lib/build/ \
+LDFLAGS=-L../drivers/lib/build/ \
 		-L../lib/build \
 	    -lpthread -ldrivers -lutils
-INCLUDE=-I/home/hogi/MDS-Embedded-Systems-Final-Project/drivers/lib/inc \
-        -I/home/hogi/MDS-Embedded-Systems-Final-Project/drivers/kernel-level/ \
+INCLUDE=-I../drivers/lib/inc \
+        -I../drivers/kernel-level/ \
         -I../lib/inc
 all: main.c 
 	make -C ../drivers/lib/

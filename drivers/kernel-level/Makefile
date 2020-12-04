@@ -1,4 +1,6 @@
-obj-m := mds2450_dht11.o mds2450_sg90.o mds2450_led_onboard.o
+obj-m := mds2450_dht11.o mds2450_sg90.o mds2450_led_onboard.o \
+		 mds2450_mg995.o mds2450_szh_rlbg_012.o \
+
 ccflags-y := -Wall
 
 KDIR := /work/linux
@@ -23,6 +25,6 @@ install:
 	cp $(CHAR_SRC) /work/linux/drivers/char/
 
 deploy:
-#	cp -r *.ko /nfsroot/root
+	cp -r *.ko /nfsroot/root
 	cp -r ./rtl8188C_8192C_usb_linux_v4.0.2_9000.20130911/*.ko /nfsroot/root
 	cp -r ./rtl8188C_8192C_usb_linux_v4.0.2_9000.20130911/rtl_init /nfsroot/root
