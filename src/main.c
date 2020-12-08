@@ -65,17 +65,17 @@ int main(int argc, char **argv)
     /* initialize lock */
     pthread_mutex_init(&lock, 0);
     
-    /* devices init */
-    devices_init();
-
     /* get port number if there is arg */
     get_port(argc, argv, &port);
 
+    /* devices init */
+    devices_init();
+
     /*
-     * initialize data structure of musics and 
-     * fill the list of musics in the data structure
+     * initialize data structure of music and 
+     * fill the list of music in the data structure
      */
-    init_musics();
+    music_init();
 
     /* create a stream socket */	
     sd = socket(AF_INET, SOCK_STREAM, 0);
@@ -286,7 +286,7 @@ void *madplay(void *arg)
     char buf[BUF_SIZE];
 
     sleep(1);
-    sprintf(buf, "madplay -a0 -r -R 20000 \"./music/%s\"", current_music);
+    sprintf(buf, "madplay -a-8 -r -R 20000 \"./music/%s\"", current_music);
     system(buf);
     
     pthread_exit(0);
@@ -313,7 +313,7 @@ void delete_file(int sd)
         return;
     }
 
-    remove_music(filename);
+    music_remove(filename);
     printf("delete completed\n");
 }
 
@@ -325,7 +325,7 @@ void transfer_list(int sd)
     pthread_mutex_lock(&lock);
 
     /* 
-     * traverse musics data structure 
+     * traverse music data structure 
      * and send each title to client
      */
     FOREACH_MUSIC
@@ -375,6 +375,7 @@ void receive_file(int sd)
     /* change directory to "./music/" and create file with the name received */
     mkdir("./music/", 0755);
     chdir("./music/");
+
     fd = open(filename, O_CREAT|O_RDWR, S_IRWXU|S_IRWXG|S_IRWXO);
     if (fd == -1)
     {
@@ -413,8 +414,8 @@ void receive_file(int sd)
     chdir("..");
 
     /* add newly downloaded music to music list */
-    add_music(filename);
-    print_musics();
+    music_add(filename);
+    music_print();
 
     sprintf(buf, "%s\n", (const char *)SOCK_CMD_END);
     send(sd, buf, strlen(buf), 0);
@@ -426,6 +427,8 @@ void receive_file(int sd)
     pthread_mutex_unlock(&lock);
 }
 
+
+/* pheriperal devices are initialized here */
 void devices_init(void)
 {
     relay_init();
@@ -439,6 +442,7 @@ void devices_init(void)
     fan_init(); 
 }
 
+/* set port number manually if argc > 1 */
 void get_port(int argc, char **argv, int *port)
 {
     switch (argc)

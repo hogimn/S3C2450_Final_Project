@@ -14,11 +14,11 @@
 pthread_mutex_t music_lock;
 List *list;
 
-void init_musics(void);
-void deinit_musics(void);
-void get_musics(void);
-void add_music(char *name);
-void remove_music(char *name);
-void print_musics(void);
+void music_init(void);
+void music_deinit(void);
+void music_get_from_directory(void);
+void music_add(char *name);
+void music_remove(char *name);
+void music_print(void);
 
 #endif

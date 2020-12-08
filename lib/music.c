@@ -4,7 +4,7 @@
 #include <pthread.h>
 #include "music.h"
 
-void init_musics(void)
+void music_init(void)
 {
     pthread_mutex_init(&music_lock, 0);
 
@@ -12,15 +12,15 @@ void init_musics(void)
 
     list_init(list, free);
 
-    get_musics();
+    music_get_from_directory();
 }
 
-void deinit_musics(void)
+void music_deinit(void)
 {
     list_destroy(list); 
 }
 
-void get_musics(void)
+void music_get_from_directory(void)
 {
     DIR *dir; 
     struct dirent *entry;
@@ -49,14 +49,14 @@ void get_musics(void)
         if (ptr_substr &&
             file_len_without_dotmp3 == file_len-4) 
         {
-            add_music(entry->d_name);
+            music_add(entry->d_name);
         }
     }
 
     closedir(dir);
 }
 
-void add_music(char *name)
+void music_add(char *name)
 {
     ListElmt *head = list->head;
     char *new_data;
@@ -84,7 +84,7 @@ void add_music(char *name)
     pthread_mutex_unlock(&music_lock);
 }
 
-void remove_music(char *name)
+void music_remove(char *name)
 {
     int rc;
     char path[254];
@@ -114,7 +114,7 @@ void remove_music(char *name)
     free(data_removed);
 }
 
-void print_musics(void)
+void music_print(void)
 {
     ListElmt *head = list->head;
 
