@@ -20,23 +20,29 @@
 
 #define DEVICE_NAME "mds2450_relay"
 
+#if 0
+	#define gprintk(fmt, x... ) printf( "%s: " fmt, __FUNCTION__ , ## x)
+#else
+	#define gprintk(x...) do { } while (0)
+#endif
+
 static long relay_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	  if(_IOC_TYPE(cmd) != RELAY_MAGIC) return -EINVAL;
       if(_IOC_NR(cmd) >= RELAY_MAXNR) return -EINVAL;
 
 	  switch(cmd) {
-		case IN1_LOW	:{gpio_set_value(S3C2410_GPG(4), 0);break;}
-		case IN1_HIGH	:{gpio_set_value(S3C2410_GPG(4), 1);break;}
+		case IN1_LOW	:{gpio_set_value(S3C2410_GPG(7), 0);break;}
+		case IN1_HIGH	:{gpio_set_value(S3C2410_GPG(7), 1);break;}
 
-		case IN2_LOW	:{gpio_set_value(S3C2410_GPG(5), 0);break;}
-		case IN2_HIGH	:{gpio_set_value(S3C2410_GPG(5), 1);break;}
+		case IN2_LOW	:{gpio_set_value(S3C2410_GPG(6), 0);break;}
+		case IN2_HIGH	:{gpio_set_value(S3C2410_GPG(6), 1);break;}
 
-		case IN3_LOW	:{gpio_set_value(S3C2410_GPG(6), 0);break;}
-		case IN3_HIGH	:{gpio_set_value(S3C2410_GPG(6), 1);break;}
+		case IN3_LOW	:{gpio_set_value(S3C2410_GPG(5), 0);break;}
+		case IN3_HIGH	:{gpio_set_value(S3C2410_GPG(5), 1);break;}
 
-		case IN4_LOW	:{gpio_set_value(S3C2410_GPG(7), 0);break;}
-		case IN4_HIGH	:{gpio_set_value(S3C2410_GPG(7), 1);break;}		
+		case IN4_LOW	:{gpio_set_value(S3C2410_GPG(4), 0);break;}
+		case IN4_HIGH	:{gpio_set_value(S3C2410_GPG(4), 1);break;}		
 		
 		default : 
 				break;
@@ -68,7 +74,7 @@ static int __devinit RELAY_probe(struct platform_device *pdev)
 	s3c2410_gpio_setpin(S3C2410_GPG(6), 1);
 	s3c2410_gpio_setpin(S3C2410_GPG(7), 1);	
 
-	printk(DEVICE_NAME" probe\n");
+	printk(KERN_INFO "%s successfully loaded\n", DEVICE_NAME);
     
 	return 0;
 }
@@ -81,7 +87,7 @@ static int __devexit RELAY_remove(struct platform_device *pdev)
 	gpio_free(S3C2410_GPG(6));
 	gpio_free(S3C2410_GPG(7));
 	
-	printk(DEVICE_NAME "removed\n");
+	printk(KERN_INFO "%s successfully removed\n", DEVICE_NAME);
 	
     return 0;
 }
@@ -119,16 +125,13 @@ static int __init RELAY_init(void)
     ret = platform_driver_register(&RELAY_device_driver);
     
 	if(!ret){
-        printk("platform_driver initiated  = %d \n", ret);
+        gprintk("platform_driver initiated  = %d \n", ret);
         ret = platform_device_register(&pdev);
-        printk("platform_device_result = %d \n", ret);
+        gprintk("platform_device_result = %d \n", ret);
         if(ret)
             platform_driver_unregister(&RELAY_device_driver);
     }
 	
-	printk(KERN_DEBUG DEVICE_NAME " initialized\n");
-	
-	 
     return ret;
 }
 
@@ -137,8 +140,6 @@ static void __exit RELAY_exit(void)
 	misc_deregister(&misc);
 	platform_device_unregister(&pdev);
     platform_driver_unregister(&RELAY_device_driver);
-    
-	printk(KERN_DEBUG DEVICE_NAME " exited\n");
 }
 
 module_init(RELAY_init);
