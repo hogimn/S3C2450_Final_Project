@@ -44,8 +44,6 @@ duty또한 ns단위
 // 최대 명령어 갯수, MAN number
 #define PWM_FAN_IOCTL_MAXNR	3
 
-#define PWM_FAN_PATH		"/dev/mds2450_pwm_fan"
-// 장치의 메이저 번호, 'ls /dev/mds2450_pwm_fan'
-#define PWM_FAN_MAJOR		32
+#define PWM_FAN_PATH		"/dev/mds2450_leadcool120"
 
 #endif
