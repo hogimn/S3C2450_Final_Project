@@ -17,6 +17,7 @@
 #include <asm/gpio.h>
 
 #define DEVICE_NAME "mds2450_dht11"
+
 #if 0
 	#define gprintk(fmt, x... ) printf( "%s: " fmt, __FUNCTION__ , ## x)
 #else
@@ -253,9 +254,6 @@ static int __init DHT11_init(void)
         if(ret)
             platform_driver_unregister(&DHT11_device_driver);
     }
-	
-	printk(KERN_DEBUG DEVICE_NAME " initialized\n");
-	
 	 
     return ret;
 }

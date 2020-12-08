@@ -146,4 +146,3 @@ module_init(RELAY_init);
 module_exit(RELAY_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("hogimn@gmail.com");
