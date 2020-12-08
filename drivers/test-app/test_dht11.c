@@ -13,6 +13,7 @@ int main(void)
     while (1)
     {
         int count = read(fd, buf, sizeof(buf)); 
+		if(count<5) continue;
         printf("count: %d\n", count);
         for (i = 0; i < count; i++) 
         {
@@ -22,4 +23,6 @@ int main(void)
 
         sleep(1);
     }
+	
+	return 0;
 }
