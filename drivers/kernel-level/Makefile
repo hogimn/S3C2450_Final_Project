@@ -1,6 +1,7 @@
 obj-m := mds2450_dht11.o mds2450_sg90.o mds2450_led_onboard.o \
 		 mds2450_mg995.o mds2450_szh_rlbg_012.o \
 		 mds2450_leadcool120.o mds2450_szh_ssbh_040.o \
+		 mds2450_fc_28.o
 
 ccflags-y := -Wall
 
@@ -15,7 +16,7 @@ PWD := $(shell pwd)
 
 all:
 	make -C $(KDIR) SUBDIRS=$(PWD) modules
-	make -C ./rtl8188C_8192C_usb_linux_v4.0.2_9000.20130911
+#	make -C ./rtl8188C_8192C_usb_linux_v4.0.2_9000.20130911
 
 clean:
 	make -C $(KDIR) SUBDIRS=$(PWD) clean
