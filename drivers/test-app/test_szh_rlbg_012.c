@@ -11,7 +11,7 @@ int main(void)
 	int flag =0;
     int fd;
 	
-	printf("\nStarting Magnetic sensor test\n");
+	printf("\nStarting Relay test\n");
  
     fd = open("/dev/mds2450_relay", O_RDWR,0);
 	printf("fd = %d\n", fd);
