@@ -1,10 +1,7 @@
 #ifndef __MDS2450_PWM_FAN__
 #define __MDS2450_PWM_FAN__
 
-struct pwm_duty_t{
-	int pulse_width;
-	int period;
-};
+#include "mds2450_pwm.h"
 
 // https://www.kernel.org/doc/html/latest/driver-api/miscellaneous.html#c.pwm_config
 /*

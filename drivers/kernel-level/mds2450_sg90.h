@@ -1,11 +1,7 @@
 #ifndef __MDS2450_SG90__
 #define __MDS2450_SG90__
 
-struct pwm_duty_t 
-{
-    int pulse_width; // nsec
-    int period;      // nsec
-};
+#include "mds2450_pwm.h"
 
 #define SG90_PWM_IOCTL_MAGIC 'p'
 #define SG90_PWM_PERIOD      20000000

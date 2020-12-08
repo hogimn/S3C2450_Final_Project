@@ -1,11 +1,7 @@
 #ifndef __MDS2450_MG995__
 #define __MDS2450_MG995__
 
-struct pwm_duty_t 
-{
-    int pulse_width; // nsec
-    int period;      // nsec
-};
+#include "mds2450_pwm.h"
 
 #define MG995_PWM_IOCTL_MAGIC 'p'
 #define MG995_PWM_PERIOD       20000000
