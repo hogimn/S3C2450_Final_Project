@@ -10,12 +10,14 @@ int main(void)
 {
 	int flag =0;
     int fd;
+	
+	printf("\nStarting Magnetic sensor test\n");
  
     fd = open("/dev/mds2450_relay", O_RDWR,0);
 	printf("fd = %d\n", fd);
 	
 	if (fd<0) {
-        perror("/dev/mds2450_relay error");
+        perror("/dev/mds2450_relay open error");
         exit(-1);
     }
 
@@ -33,4 +35,6 @@ int main(void)
 	ioctl(fd, IN4_HIGH, flag); getchar();
 	
 	close(fd);
+	
+	return 0;
 }
