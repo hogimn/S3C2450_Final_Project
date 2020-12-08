@@ -1,39 +1,36 @@
 #include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
 #include <fcntl.h>
+#include <termio.h>
 
-char *key_string[5] = {"ENTER","UP","LEFT","DOWN","RIGHT"};	
-
+// 자석을 감지하면 값이 0 됨.
 int main(void)
 {
 	int fd;
-	int len = 0;
-	char key_value;
+	int ret;
+	int prevRet = -1 ;
 
-	printf("\nStarting keyscan test\n");
-
-	fd = open("/dev/keyscan", O_RDONLY, 0);
-	//fd = open("/dev/input/event0", O_RDONLY, 0);
-	if(fd < 0) {
-		printf("/dev/keyscan : device open error\n");
-		exit(0);
-	}
-
-	while(1) {
-		printf("press keypad: \n");
-
-		while(1) {
-
-			len = read(fd, &key_value, 1);
-
-			if(len > 0)	break;
-		}
-
-		if(key_value != 0) {
-			printf("%s(%d)\n", key_string[key_value-1], key_value);
+	printf("\nStarting Magnetic sensor test\n");
 	
-		}
-
+	fd = open("/dev/mds2450_szh_ssbh_040", O_RDWR, 0);
+	
+	printf("fd = %d\n", fd);
+	
+	if(fd < 0) {
+		perror("/dev/mds2450_szh_ssbh_040 open error\n");
+		exit(-1);
 	}
+	
+	while(1)
+	{
+		ret = read(fd,NULL,0);
+		if(ret != prevRet)	printf("\nMagnetic sensor data : %d\n",ret);
+		prevRet = ret;
+	}
+	
 
 	close(fd);
+
+	return 0;
 }
