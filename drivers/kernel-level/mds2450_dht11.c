@@ -17,6 +17,11 @@
 #include <asm/gpio.h>
 
 #define DEVICE_NAME "mds2450_dht11"
+#if 0
+	#define gprintk(fmt, x... ) printf( "%s: " fmt, __FUNCTION__ , ## x)
+#else
+	#define gprintk(x...) do { } while (0)
+#endif
 
 static unsigned char DHT11_read_byte(void)
 {
@@ -195,7 +200,7 @@ static int __devinit DHT11_probe(struct platform_device *pdev)
     s3c2410_gpio_cfgpin(S3C2410_GPG(1), S3C_GPIO_SFN(1));
     s3c2410_gpio_setpin(S3C2410_GPG(1), 1);
 
-	printk(DEVICE_NAME" probe\n");
+	printk(KERN_INFO "%s successfully loaded\n", DEVICE_NAME);
     return 0;
 }
 
@@ -204,7 +209,7 @@ static int __devexit DHT11_remove(struct platform_device *pdev)
    
 	gpio_free(S3C2410_GPG(1));
 	
-	printk(DEVICE_NAME "removed\n");
+	printk(KERN_INFO "%s successfully removed\n", DEVICE_NAME);
 	
     return 0;
 }
@@ -242,9 +247,9 @@ static int __init DHT11_init(void)
     ret = platform_driver_register(&DHT11_device_driver);
     
 	if(!ret){
-        printk("platform_driver initiated  = %d \n", ret);
+        gprintk("platform_driver initiated  = %d \n", ret);
         ret = platform_device_register(&pdev);
-        printk("platform_device_result = %d \n", ret);
+        gprintk("platform_device_result = %d \n", ret);
         if(ret)
             platform_driver_unregister(&DHT11_device_driver);
     }
@@ -261,7 +266,6 @@ static void __exit DHT11_exit(void)
 	platform_device_unregister(&pdev);
     platform_driver_unregister(&DHT11_device_driver);
     
-	printk(KERN_DEBUG DEVICE_NAME " exited\n");
 }
 
 module_init(DHT11_init);
