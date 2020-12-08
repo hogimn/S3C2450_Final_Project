@@ -10,8 +10,8 @@
 #include <unistd.h>
 #include "list.h"
 #include "music.h"
-#include "temphumid.h"
 #include "itoa.h"
+#include "devices.h"
 #include <signal.h>
 
 #define SERVER_TCP_DEFAULT_PORT 3000
@@ -24,6 +24,7 @@
 #define SOCK_CMD_DELETE_CLIENT_TO_SERVER "2"
 #define SOCK_CMD_PLAY_CLIENT_TO_SERVER   "3" 
 #define SOCK_CMD_SENSOR_SERVER_TO_CLIENT "4"
+#define SOCK_CMD_CAMERA_SERVER_TO_CLIENT "5"
 #define SOCK_CMD_END                     "-1" 
 #define BUF_SIZE 1024
 #define TRUE 1
@@ -35,6 +36,7 @@ void delete_file(int sd);
 void transfer_list(int sd);
 void play_music(int sd);
 void transfer_sensor_data(int sd);
+void transfer_camera_data(int sd);
 void *madplay(void *arg);
 void *socket_handler(void *arg);
 void get_port(int argc, char **argv, int *port);
@@ -162,9 +164,45 @@ void *socket_handler(void *arg)
     {
         transfer_sensor_data(sd);
     }
+    /* command 5: transfer camera data to client */
+    else if (!strcmp(buf, SOCK_CMD_CAMERA_SERVER_TO_CLIENT))
+    {
+        transfer_camera_data(sd);
+    }
 
     printf("thread exit\n");
     pthread_exit(0);
+}
+
+void transfer_camera_data(int sd)
+{
+    int height = 144;
+    int width = 176;
+    unsigned char src_image[width*height*3];
+
+    init_framebuffer();
+    init_video_capture(width, height);
+
+    /* loop while client is connected */
+    while (1)
+    {
+        video_capture(src_image, width, height);
+
+        /* 
+         * if client is disconnected, SIGPIPE will be ignored
+         * and send will return -1 
+         */
+        if (-1 == send(sd, src_image, height*width*3, 0))
+        {
+            printf("connection failed\n");
+            break; 
+        }
+    }
+
+    free_video_capture();
+    free_framebuffer();
+    
+    printf("camera data transfer exited");
 }
 
 void transfer_sensor_data(int sd)
@@ -390,7 +428,15 @@ void receive_file(int sd)
 
 void devices_init(void)
 {
+    relay_init();
+    led_init();
+    servo_init();
+    moisture_init();
+    solenoid_init();
     temphumid_init();
+    photo_init();
+    magnetic_init();
+    fan_init(); 
 }
 
 void get_port(int argc, char **argv, int *port)
