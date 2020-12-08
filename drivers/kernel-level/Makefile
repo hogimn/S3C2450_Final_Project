@@ -20,7 +20,7 @@ all:
 
 clean:
 	make -C $(KDIR) SUBDIRS=$(PWD) clean
-	make -C ./rtl8188C_8192C_usb_linux_v4.0.2_9000.20130911 clean
+#	make -C ./rtl8188C_8192C_usb_linux_v4.0.2_9000.20130911 clean
 
 install:
 	cp $(MISC_SRC) /work/linux/drivers/misc/
@@ -28,5 +28,5 @@ install:
 
 deploy:
 	cp -r *.ko /nfsroot/root
-	cp -r ./rtl8188C_8192C_usb_linux_v4.0.2_9000.20130911/*.ko /nfsroot/root
-	cp -r ./rtl8188C_8192C_usb_linux_v4.0.2_9000.20130911/rtl_init /nfsroot/root
+#	cp -r ./rtl8188C_8192C_usb_linux_v4.0.2_9000.20130911/*.ko /nfsroot/root
+#	cp -r ./rtl8188C_8192C_usb_linux_v4.0.2_9000.20130911/rtl_init /nfsroot/root
