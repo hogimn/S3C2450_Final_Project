@@ -6,14 +6,13 @@
 
 #include <linux/module.h>
 #include <linux/init.h>
-#include <linux/major.h>
 #include <linux/kernel.h>
 #include <linux/fs.h>
 
-#include <asm/uaccess.h>
 #include <mach/gpio.h>
 #include <mach/regs-gpio.h>
 #include <plat/gpio-cfg.h>
+#include <asm/uaccess.h>
 
 #include <linux/pwm.h>
 
@@ -24,16 +23,20 @@
 
 #define DEVICE_NAME "mds2450_mg995"
 #define PRINTK_FAIL printk("%s[%d]: failed\n", __FUNCTION__, __LINE__)
-
+#if 0
+	#define gprintk(fmt, x... ) printf( "%s: " fmt, __FUNCTION__ , ## x)
+#else
+	#define gprintk(x...) do { } while (0)
+#endif
 
 static struct pwm_device *pwm_dev;
 
 static int MG995_open(struct inode * inode, struct file * filp)
 {
-	printk("Device has been opened\n");
+	gprintk("Device has been opened\n");
     
 	pwm_dev = pwm_request(2, "pwm_dev");
-    if (NULL == pwm_dev)
+    if(NULL == pwm_dev)
     {
         PRINTK_FAIL;
         return -1;
@@ -44,7 +47,7 @@ static int MG995_open(struct inode * inode, struct file * filp)
 
 static int MG995_release(struct inode *inode, struct file *filp)
 {
-	printk("Device has been closed...\n");
+	gprintk("Device has been closed...\n");
     pwm_free(pwm_dev);
     return 0;
 }
@@ -93,6 +96,7 @@ static long MG995_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
             break;
 
         default:
+			printk("COMMAND ERROR\n");
             break;
     }
 
@@ -116,7 +120,7 @@ static int __devinit MG995_probe(struct platform_device *pdev)
     s3c_gpio_cfgpin(S3C2410_GPB(2), S3C_GPIO_SFN(2));
     s3c_gpio_setpull(S3C2410_GPB(2), S3C_GPIO_PULL_UP);
 	
-	printk(DEVICE_NAME" probe\n");
+	printk(KERN_INFO "%s successfully loaded\n", DEVICE_NAME);
 
     return 0;
 }
@@ -125,7 +129,7 @@ static int __devexit MG995_remove(struct platform_device *pdev)
 {
    gpio_free(S3C2410_GPB(2));
    
-   printk(DEVICE_NAME " removed\n");
+   printk(KERN_INFO "%s successfully removed\n", DEVICE_NAME);
    
     return 0;
 }
@@ -146,7 +150,7 @@ static struct platform_device pdev  =
 
 static struct platform_driver MG995_device_driver = {
     .driver     = {
-        .name   = "mds2450_mg995",
+        .name   = DEVICE_NAME,
         .owner  = THIS_MODULE,
     },
 	.probe      = MG995_probe,
@@ -158,21 +162,19 @@ static int __init MG995_init(void)
 {
     int ret;
 	
+	printk(KERN_DEBUG DEVICE_NAME " initialized\n");
+	
 	misc_register(&mg995_misc);
 	
     ret = platform_driver_register(&MG995_device_driver);
 	
-	
 	if(!ret){
-        printk("platform_driver initiated  = %d \n", ret);
+        gprintk("platform_driver initiated  = %d \n", ret);
         ret = platform_device_register(&pdev);
-        printk("platform_device_result = %d \n", ret);
+        gprintk("platform_device_result = %d \n", ret);
         if(ret)
             platform_driver_unregister(&MG995_device_driver);
     }
-
-
-    printk(KERN_DEBUG DEVICE_NAME " initialized\n");
 
     return 0;
 }
@@ -184,7 +186,6 @@ static void __exit MG995_exit(void)
 	platform_device_unregister(&pdev);
     platform_driver_unregister(&MG995_device_driver);
 
-    printk(KERN_DEBUG DEVICE_NAME " exited\n");
 }
 
 module_init(MG995_init);
