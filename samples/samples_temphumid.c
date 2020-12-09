@@ -20,8 +20,8 @@ int main(void)
         rc = temphumid_read(data);
         if (rc == TEMPHUMID_OK)
             printf("%d, %d\n", data[0], data[1]);
-        else
-            printf("error!\n");
+        else	continue;
+            //printf("error!\n");
         sleep(1);
 
         count++;
