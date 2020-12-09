@@ -1,7 +1,7 @@
 CC=arm-none-linux-gnueabi-gcc
 LDFLAGS=-L../drivers/lib/build/ \
 		-L../lib/build \
-	    -lpthread -ldrivers -lutils
+	    -lpthread -ldrivers -lutils -lrt
 INCLUDE=-I../drivers/lib/inc \
         -I../drivers/kernel-level/ \
         -I../lib/inc
