@@ -140,8 +140,8 @@ void create_devices_threads(void)
     pthread_t t_photo;
     /* thread to give water every predetermined interval */
     pthread_t t_water;
-    /* thread to detect magnetic change */
-    pthread_t t_magnetic;
+    /* thread to detect moisture change */
+    pthread_t t_moisture;
 
     /*
      *#############################################
@@ -160,7 +160,7 @@ void create_devices_threads(void)
     pthread_create(&t_magnetic, (void *)NULL, 
         magnetic_handler, (void *)NULL);
 
-    pthread_create(&t_magnetic, (void *)NULL, 
+    pthread_create(&t_moisture, (void *)NULL, 
         moisture_handler, (void *)NULL);
 }
 
@@ -551,27 +551,6 @@ void devices_init(void)
 {
     int rc;
 
-    rc = relay_init();
-    if (rc != RELAY_INIT_OK)
-    {
-        PRINT_ERR;
-        exit(1);
-    }
-
-    rc = servo_init();
-    if (rc != SERVO_INIT_OK)
-    {
-        PRINT_ERR;
-        exit(1);
-    }
-
-    rc = moisture_init();
-    if (rc != MOISTURE_INIT_OK)
-    {
-        PRINT_ERR;
-        exit(1);
-    }
-
     rc = temphumid_init();
     if (rc != TEMPHUMID_INIT_OK)
     {
@@ -579,38 +558,6 @@ void devices_init(void)
         exit(1);
     }
 
-    rc = photo_init();
-    if (rc != PHOTO_INIT_OK)
-    {
-        if (rc == PHOTO_INIT_FILE_OPEN_FAIL)
-        {
-            PRINT_ERR;
-        }
-        if (rc == PHOTO_INIT_I2C_FAIL)
-        {
-            PRINT_ERR;
-        }
-        exit(1);
-    }
-
-    rc = magnetic_init();
-    if (rc != MAGNETIC_INIT_OK)
-    {
-        PRINT_ERR;
-        exit(1);
-    }
-
-    rc = fan_init(); 
-    if (rc != FAN_INIT_OK)
-    {
-        PRINT_ERR;
-        exit(1);
-    }
-
-    /* do nothing at this moment */
-    led_init();
-    solenoid_init();
-	dryer_init();
 }
 
 void message_queue_init(void)
