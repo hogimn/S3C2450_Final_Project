@@ -4,6 +4,8 @@
 #define RELAY_MAGIC    'k'
 #define RELAY_MAXNR    8
 
+#define RELAY_DEV_PATH  "/dev/mds2450_relay"
+
 #define IN1_LOW     	_IO(RELAY_MAGIC, 0)	
 #define IN1_HIGH       	_IO(RELAY_MAGIC, 1)
 #define IN2_LOW     	_IO(RELAY_MAGIC, 2)	
