@@ -3,6 +3,7 @@
 
 #include "fan.h"
 #include "led.h"
+#include "dryer.h"
 #include "relay.h"
 #include "magnetic.h"
 #include "moisture.h"
