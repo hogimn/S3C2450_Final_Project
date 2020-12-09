@@ -29,7 +29,7 @@ int main(void)
     ioctl(fd, MG995_PWM_DUTYRATE, &duty);
     sleep(1);
 	
-	 duty.pulse_width = MG995_PWM_DEGREE_45;
+	duty.pulse_width = MG995_PWM_DEGREE_45;
     ioctl(fd, MG995_PWM_DUTYRATE, &duty);
     sleep(1);
 	
