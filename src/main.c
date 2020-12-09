@@ -198,7 +198,7 @@ void *temphumi_handler(void *arg)
         int humid_under = 8;
 
         rc = temphumid_read(data);
-        if (rc == TEMPHUMID_OK)
+        if (rc == TEMPHUMID_READ_OK)
             printf("%d, %d\n", data[0], data[1]);
         else
             continue;
@@ -385,7 +385,7 @@ void transfer_sensor_data(int sd)
     while (1)
     {
         rc = temphumid_read(humitemp); 
-        if (rc != TEMPHUMID_OK)
+        if (rc != TEMPHUMID_READ_OK)
         {
             sleep(1);
             continue;

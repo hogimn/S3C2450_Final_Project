@@ -18,7 +18,7 @@ int main(void)
         int rc;
         int data[2];
         rc = temphumid_read(data);
-        if (rc == TEMPHUMID_OK)
+        if (rc == TEMPHUMID_READ_OK)
             printf("%d, %d\n", data[0], data[1]);
         else	continue;
             //printf("error!\n");

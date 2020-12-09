@@ -30,10 +30,10 @@ int temphumid_read(int ret[2])
     {
         ret[0] = buf[0];
         ret[1] = buf[2];
-        return TEMPHUMID_OK;
+        return TEMPHUMID_READ_OK;
     }
 
-    return !TEMPHUMID_OK;
+    return !TEMPHUMID_READ_OK;
 }
 
 void temphumid_deinit(void)
