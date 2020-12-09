@@ -4,8 +4,7 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <fcntl.h>
-#include <sys/ioctl.h>
-#include <sys/time.h>
+#include <sys/ioctl.h> #include <sys/time.h>
 #include <linux/i2c-dev.h>
 #include <unistd.h>
 #include <sys/mman.h>
@@ -50,24 +49,40 @@ int photo_get_intensity(void)
 	/*---------- power on ------------*/
 	raddr=0x01;  // 0000 0001
 	ret = write(fd_photo,&raddr,1);
+	if (ret == -1)
+	{
+        return ret;	
+	}
 	gprintk("ret : %d\n",ret);
 	
 	
 	/*------------ Reset -------------*/
 	raddr=0x07;  // 0000 0111
 	ret = write(fd_photo,&raddr,1);
+	if (ret == -1)
+	{
+        return ret;	
+	}
 	gprintk("ret : %d\n",ret);
 	
 	
 	/*---------- Send Mode instr. ------------*/
 	raddr = (0x23<<1)|(0x00); //010 0011 + 0(write)
 	ret = write(fd_photo,&raddr,1);
+	if (ret == -1)
+	{
+        return ret;	
+	}
 	gprintk("ret : %d\n",ret);
 
 	//raddr = 0x23; //0010 0011, OneTime_L_resolution_Mode
 	raddr = 0x20; //0010 0000, OneTime_H_resolution_Mode
 
 	ret = write(fd_photo,&raddr,1);
+	if (ret == -1)
+	{
+        return ret;	
+	}
 	gprintk("ret : %d\n",ret);
 
 
@@ -79,12 +94,20 @@ int photo_get_intensity(void)
 	/*---------- Read Measurement Result ------------*/
 	raddr = (0x23<<1)|(0x01); //010 0011 + 0(read)
 	gprintk(" raddr is : 0x%x \n", raddr>>1 );
-	
+
 	ret = write(fd_photo,&raddr,1);
+	if (ret == -1)
+	{
+        return ret;	
+	}
 	gprintk("ret : %d\n",ret);
 	
 
 	ret = read(fd_photo, temp, 2);
+	if (ret == -1)
+	{
+        return ret;	
+	}
 	gprintk("ret : %d  , L temp : %d, L temp : %d \n",ret, temp[0],temp[1]);
 	
 	
