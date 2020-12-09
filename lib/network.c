@@ -1,9 +1,11 @@
-#include "network.h"
 #include <signal.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include "network.h"
 
 int network_server_init(int port)
 {
@@ -20,7 +22,7 @@ int network_server_init(int port)
     signal(SIGPIPE, SIG_IGN);
 
     /* create a stream socket */	
-    sd = socket(AF_INET, SOCK_STREAM, 0);
+    sd = socket(AF_INET, SOCK_STREAM|SOCK_NONBLOCK, 0);
     if (sd == -1) 
     {
         return sd;

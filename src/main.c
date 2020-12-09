@@ -9,7 +9,6 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <signal.h>
-#include <semaphore.h>
 #include "list.h"
 #include "music.h"
 #include "itoa.h"
@@ -85,16 +84,20 @@ int main(int argc, char **argv)
      */
     while(1)
     {
+        /* non-blocking socket */
         new_sd = network_accept_client(sd);
-        if (new_sd < 0)
+        if (new_sd >= 0)
         {
-            PRINT_ERR;
-            exit(1);
+            /* create thread to handle in background */
+            pthread_create(&t_socket, (void *)0, 
+                    socket_handler, (void *)&new_sd);
         }
-
-        /* create thread to handle in background */
-        pthread_create(&t_socket, (void *)0, 
-                       socket_handler, (void *)&new_sd);
+        else
+        {
+            /* message queue wait */
+            printf("hello world\n");
+            sleep(1);
+        }
     }
 
     return 0;
@@ -139,8 +142,8 @@ void *temphumi_handler(void *arg)
         rc = temphumid_read(data);
         if (rc == TEMPHUMID_OK)
             printf("%d, %d\n", data[0], data[1]);
-        else	continue;
-        
+        else
+            continue;
         
         // printf("temphumi_handler\n"); 
         sleep(1);
