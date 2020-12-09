@@ -10,14 +10,14 @@
 #include <unistd.h>
 #include <signal.h>
 #include <mqueue.h>
-#include "list.h"
+#include "list.h" 
 #include "music.h"
 #include "itoa.h"
 #include "devices.h"
 #include "network.h"
 
-#define PRINT_ERR fprintf(stderr, "%s[%d]: failed\n", \
-                          __FUNCTION__, __LINE__)
+#define ERR_HANDLE fprintf(stderr, "%s[%d]: failed\n", \
+        __FUNCTION__, __LINE__); exit(1);
 
 #define BUF_SIZE 1024
 #define TRUE 1
@@ -34,6 +34,7 @@
 
 void devices_init(void);
 void create_devices_threads(void);
+void message_queue_init(void);
 
 /* the functions socket_handler calls */
 void receive_file(int sd);
@@ -42,7 +43,6 @@ void play_music(int sd);
 void transfer_list(int sd);
 void transfer_sensor_data(int sd);
 void transfer_camera_data(int sd);
-void message_queue_init(void);
 
 /* periodic thread handler */
 void *temphumi_handler(void *arg);
@@ -55,13 +55,19 @@ void *moisture_handler(void *arg);
 void *socket_handler(void *arg);
 void *madplay(void *arg);
 
+/* contains the title of currently playing music */
 char current_music[BUF_SIZE];
-pthread_mutex_t lock;
+
+/* 
+ * receive_file() and transfer_list()
+ * will be atomically executed (function boundary lock)
+ */
+pthread_mutex_t recv_trans_lock;
 mqd_t mqd_main;
 
 struct mq_attr attr = {
-    .mq_maxmsg = 64, /* entire queue size: 64 * 4 bytes */
-    .mq_msgsize = 4, /* 1 byte per message */
+    .mq_maxmsg = 64, /* entire queue size: 64*4 bytes */
+    .mq_msgsize = 4, /* 4 byte per message */
 };
 
 int main(int argc, char **argv)
@@ -74,8 +80,8 @@ int main(int argc, char **argv)
     pthread_t t_socket;
 
     /* initialize lock */
-    pthread_mutex_init(&lock, 0);
-    
+    pthread_mutex_init(&recv_trans_lock, 0);
+
     /* devices init */
     devices_init();
 
@@ -92,25 +98,24 @@ int main(int argc, char **argv)
 
     /* get port number if argc > 1 */
     network_get_port(argc, argv, &port);
+
     /* create socket, bind and listen */ 
     sd = network_server_init(port);
     if (sd == -1)
     {
-        PRINT_ERR;
-        exit(1);
+        ERR_HANDLE;
     }
 
     while(1)
     {
         /*
+         * non-blocking accept
          * whenever client tries to connect,
          * create a new thread which will take the workload
          */
-        /* non-blocking socket */
         new_sd = network_accept_client(sd);
         if (new_sd >= 0)
         {
-            /* create thread to handle in background */
             pthread_create(&t_socket, (void *)0, 
                     socket_handler, (void *)&new_sd);
         }
@@ -122,16 +127,21 @@ int main(int argc, char **argv)
             switch (mq_cmd)
             {
                 // TODO
-				case '3' : printf("MQ_CMD_LED_ON\n");
-						break;
-				case '4' : printf("MQ_CMD_FAN_OFF\n");
-						break;
-				default : 
-						printf("Unknown error\n");
-						break;
+                case MQ_CMD_FAN_ON: 
+                    printf("MQ_CMD_FAN_ON\n");
+                    break;
+
+                case MQ_CMD_FAN_OFF: 
+                    printf("MQ_CMD_FAN_OFF\n");
+                    break;
+
+                default: 
+                    printf("Unknown error\n");
+                    break;
             }
         }
-        
+
+        /* for test */
         printf("hello world\n");
         sleep(1);
     }
@@ -141,7 +151,7 @@ int main(int argc, char **argv)
 
 void create_devices_threads(void)
 {
-    /* thread to read temparature / humidity */
+    /* thread to read temparature/humidity */
     pthread_t t_temphumi;
     /* thread to detect lack of photo intensity */
     pthread_t t_photo;
@@ -158,19 +168,19 @@ void create_devices_threads(void)
      *#############################################
      */
     pthread_create(&t_temphumi, (void *)NULL, 
-        temphumi_handler, (void *)NULL);
+            temphumi_handler, (void *)NULL);
 
     pthread_create(&t_photo, (void *)NULL, 
-        photo_handler, (void *)NULL);
+            photo_handler, (void *)NULL);
 
     pthread_create(&t_water, (void *)NULL, 
-        water_handler, (void *)NULL);
+            water_handler, (void *)NULL);
 
     pthread_create(&t_magnetic, (void *)NULL, 
-        magnetic_handler, (void *)NULL);
+            magnetic_handler, (void *)NULL);
 
     pthread_create(&t_moisture, (void *)NULL, 
-        moisture_handler, (void *)NULL);
+            moisture_handler, (void *)NULL);
 }
 
 void *temphumi_handler(void *arg)
@@ -179,40 +189,40 @@ void *temphumi_handler(void *arg)
     while (1)
     {
         // TODO
-		int rc;
-		
+        int rc;
+
         int data[2];
-		int humid;
-		int temp;
-		int humid_upper = 10;
-		int humid_under = 8;
-		
+        int humid;
+        int temp;
+        int humid_upper = 10;
+        int humid_under = 8;
+
         rc = temphumid_read(data);
         if (rc == TEMPHUMID_OK)
             printf("%d, %d\n", data[0], data[1]);
         else
             continue;
         humid = data[0];
-		temp = data[1];
-		
-		if(humid>humid_upper)
-		{
-			printf("on\n");	// on
-			char buffer = MQ_CMD_FAN_ON;
-			
-			mq_send(mqd_main, (char*)&buffer, attr.mq_msgsize, 0);
-		}
-			
-		else if(humid<humid_under)
-		{
-			printf("off\n");	// off
-			char buffer = MQ_CMD_FAN_OFF;
-			
-			mq_send(mqd_main, (char*)&buffer, attr.mq_msgsize, 0);
-		}
-			
-		
-		
+        temp = data[1];
+
+        if(humid>humid_upper)
+        {
+            printf("on\n");    // on
+            char buffer = MQ_CMD_FAN_ON;
+
+            mq_send(mqd_main, (char*)&buffer, attr.mq_msgsize, 0);
+        }
+
+        else if(humid<humid_under)
+        {
+            printf("off\n");   // off
+            char buffer = MQ_CMD_FAN_OFF;
+
+            mq_send(mqd_main, (char*)&buffer, attr.mq_msgsize, 0);
+        }
+
+
+
         // printf("temphumi_handler\n"); 
         sleep(1);
     }
@@ -228,10 +238,15 @@ void *photo_handler(void *arg)
     {
         // TODO
         int ret;
-		
-		ret = photo_get_intensity();
 
-		printf("intensity : %d\n",ret); 
+        ret = photo_get_intensity();
+        if (ret == -1)
+        {
+            sleep(1);
+            continue;
+        }
+
+        printf("intensity : %d\n",ret); 
         sleep(1); 
     }
 
@@ -245,10 +260,10 @@ void *magnetic_handler(void *arg)
     while (1)
     {
         // TODO
-		if(magnetic_is_detected())
-		{
-			printf("detected\n");
-		}
+        if(magnetic_is_detected())
+        {
+            printf("detected\n");
+        }
         sleep(1); 
     }
 
@@ -273,7 +288,7 @@ void *water_handler(void *arg)
     /* give water at specific time */
     while (1)
     {
-         
+
     }
 
     printf("water handler exited\n");
@@ -288,8 +303,8 @@ void *socket_handler(void *arg)
 
     sd = *(int *)arg;
 
-    bytes_read = recv(sd, (void *)buf, BUF_SIZE, 0);
-    buf[bytes_read] = '\0';
+    bytes_read = recv(sd, (void *)buf, 1, 0);
+    buf[bytes_read] = '\0'; /* null terminated c-string */
 
     printf("received command: %s\n", buf);
 
@@ -297,8 +312,7 @@ void *socket_handler(void *arg)
     if (!strcmp(buf, SOCK_CMD_FILE_CLIENT_TO_SERVER))
     {
         receive_file(sd);
-    }
-    /* command 1: transfer music list to client */
+    } /* command 1: transfer music list to client */
     else if (!strcmp(buf, SOCK_CMD_LIST_SERVER_TO_CLIENT))
     {
         transfer_list(sd);
@@ -355,8 +369,8 @@ void transfer_camera_data(int sd)
 
     free_video_capture();
     free_framebuffer();
-    
-    printf("camera data transfer exited");
+
+    printf("camera data transfer exited\n");
 }
 
 void transfer_sensor_data(int sd)
@@ -397,8 +411,8 @@ void transfer_sensor_data(int sd)
 
         sleep(1);
     }
-    
-    printf("sensor data transfer exited");
+
+    printf("sensor data transfer exited\n");
 }
 
 void play_music(int sd)
@@ -418,16 +432,18 @@ void play_music(int sd)
 
     system("killall madplay");
 
-    /* current_music != filename */
+    /* 
+     * current_music != received_music 
+     * start a new thread which plays received music
+     */
     if (strcmp(current_music, filename))
     {
         strcpy(current_music, filename);
 
-        pthread_create(&thread_madplay, 
-                       (void *)0,
-                       madplay,
-                       (void *)0);
+        pthread_create(&thread_madplay, (void *)0,
+                madplay, (void *)0);
     }
+    /* clear current_music */
     else
     {
         bzero(current_music, sizeof(current_music));
@@ -440,9 +456,9 @@ void *madplay(void *arg)
     char buf[BUF_SIZE];
 
     sleep(1);
-    sprintf(buf, "madplay -a-8 -r -R 20000 \"./music/%s\"", current_music);
+    sprintf(buf, "madplay -a0 -r -R 20000 \"./music/%s\"", current_music);
     system(buf);
-    
+
     pthread_exit(0);
 }
 
@@ -474,9 +490,9 @@ void delete_file(int sd)
 void transfer_list(int sd)
 {
     char buf[BUF_SIZE];
-    
+
     /* lock function boundary */
-    pthread_mutex_lock(&lock);
+    pthread_mutex_lock(&recv_trans_lock);
 
     /* 
      * traverse music data structure 
@@ -485,7 +501,7 @@ void transfer_list(int sd)
     FOREACH_MUSIC
         sprintf(buf, "%s\n", (const char *)head->data); 
         send(sd, buf, strlen(buf), 0);
-        printf("trasnferring... %s", buf);
+        printf("trasnferring... %s\n", buf);
     END_FOREACH_MUSIC
 
     /* notify to client that transfer is over */
@@ -504,8 +520,8 @@ void transfer_list(int sd)
 
     printf("music list transfer completed\n");
 
-    /* unlock function boundary */
-    pthread_mutex_unlock(&lock);
+    /* unlock function boundary lock */
+    pthread_mutex_unlock(&recv_trans_lock);
 }
 
 void receive_file(int sd)
@@ -517,7 +533,7 @@ void receive_file(int sd)
     int bytes_read, bytes_written;
 
     /* lock function boundary */
-    pthread_mutex_lock(&lock);
+    pthread_mutex_lock(&recv_trans_lock);
 
     /* receive file name */
     bytes_read = recv(sd, (void *)buf, BUF_SIZE, 0);
@@ -533,8 +549,7 @@ void receive_file(int sd)
     fd = open(filename, O_CREAT|O_RDWR, S_IRWXU|S_IRWXG|S_IRWXO);
     if (fd == -1)
     {
-        PRINT_ERR;
-        exit(-1);
+        ERR_HANDLE;
     }
 
     sleep(1);
@@ -552,16 +567,14 @@ void receive_file(int sd)
         /* error */
         else if (bytes_read == -1) 
         {
-            PRINT_ERR;
-            exit(1);
+            ERR_HANDLE;
         }
 
         /* write to the file created */
         bytes_written = write(fd, (void *)buf, bytes_read);
         if (bytes_written == -1)
         {
-            PRINT_ERR;
-            exit(1);
+            ERR_HANDLE;
         }
     }
 
@@ -577,8 +590,8 @@ void receive_file(int sd)
 
     printf("file received completed\n");
 
-    /* unlock function boundary */
-    pthread_mutex_unlock(&lock);
+    /* unlock function boundary lock */
+    pthread_mutex_unlock(&recv_trans_lock);
 }
 
 /* pheriperal devices are initialized here */
@@ -586,22 +599,69 @@ void devices_init(void)
 {
     int rc;
 
+    rc = relay_init();
+    if (rc != RELAY_INIT_OK)
+    {
+        ERR_HANDLE;
+    }
+
+    rc = servo_init();
+    if (rc != SERVO_INIT_OK)
+    {
+        ERR_HANDLE;
+    }
+
+    rc = moisture_init();
+    if (rc != MOISTURE_INIT_OK)
+    {
+        ERR_HANDLE;
+    }
+
     rc = temphumid_init();
     if (rc != TEMPHUMID_INIT_OK)
     {
-        PRINT_ERR;
-        exit(1);
+        ERR_HANDLE;
     }
 
+    rc = photo_init();
+    if (rc != PHOTO_INIT_OK)
+    {
+        if (rc == PHOTO_INIT_FILE_OPEN_FAIL)
+        {
+            ERR_HANDLE;
+        }
+        if (rc == PHOTO_INIT_I2C_FAIL)
+        {
+            ERR_HANDLE;
+        }
+    }
+
+    rc = magnetic_init();
+    if (rc != MAGNETIC_INIT_OK)
+    {
+        ERR_HANDLE;
+    }
+
+    rc = fan_init(); 
+    if (rc != FAN_INIT_OK)
+    {
+        ERR_HANDLE;
+    }
+
+    /* do nothing at this moment */
+    led_init();
+    solenoid_init();
+    dryer_init();
 }
+
 
 void message_queue_init(void)
 {
+    /* create non-blocking message queue */
     mqd_main = mq_open("/mq_main", 
-        O_CREAT|O_NONBLOCK|O_RDWR, 0666, &attr);
+            O_CREAT|O_NONBLOCK|O_RDWR, 0666, &attr);
     if (mqd_main == -1)
     {
-        PRINT_ERR;
-        exit(1);
+        ERR_HANDLE;
     }
 }
