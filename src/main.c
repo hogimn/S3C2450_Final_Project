@@ -9,6 +9,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <signal.h>
+#include <mqueue.h>
 #include "list.h"
 #include "music.h"
 #include "itoa.h"
@@ -22,6 +23,15 @@
 #define TRUE 1
 #define FALSE 0
 
+#define MQ_CMD_LED_ON           '1'
+#define MQ_CMD_LED_OFF          '2'
+#define MQ_CMD_FAN_ON           '3'
+#define MQ_CMD_FAN_OFF          '4'
+#define MQ_CMD_DRAIN            '5'
+#define MQ_CMD_DRAIN_STOP       '6'
+#define MQ_CMD_SOLENOID_OPEN    '7'
+#define MQ_CMD_SOLENOID_CLOSE   '8'
+
 void devices_init(void);
 void create_devices_threads(void);
 
@@ -32,6 +42,7 @@ void play_music(int sd);
 void transfer_list(int sd);
 void transfer_sensor_data(int sd);
 void transfer_camera_data(int sd);
+void message_queue_init(void);
 
 /* periodic thread handler */
 void *temphumi_handler(void *arg);
@@ -46,10 +57,19 @@ void *madplay(void *arg);
 
 char current_music[BUF_SIZE];
 pthread_mutex_t lock;
+mqd_t mqd_main;
+
+struct mq_attr attr = {
+    .mq_maxmsg = 64, /* entire queue size: 64 * 4 bytes */
+    .mq_msgsize = 4, /* 4 byte per message */
+};
 
 int main(int argc, char **argv)
 {
     int sd, new_sd, port;
+    char mq_cmd;
+    int rc;
+
     /* thread to handle socket connection */
     pthread_t t_socket;
 
@@ -65,6 +85,8 @@ int main(int argc, char **argv)
      */
     music_init();
 
+    message_queue_init();
+
     /* create threads to controll devices */
     create_devices_threads();
 
@@ -78,12 +100,12 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    /*
-     * whenever client tries to connect,
-     * create a new thread which will take the workload
-     */
     while(1)
     {
+        /*
+         * whenever client tries to connect,
+         * create a new thread which will take the workload
+         */
         /* non-blocking socket */
         new_sd = network_accept_client(sd);
         if (new_sd >= 0)
@@ -92,12 +114,19 @@ int main(int argc, char **argv)
             pthread_create(&t_socket, (void *)0, 
                     socket_handler, (void *)&new_sd);
         }
-        else
+
+        /* non-blocking message queue wait */
+        rc = mq_receive(mqd_main, (char*)&mq_cmd, attr.mq_msgsize, 0);
+        if (rc >= 0)
         {
-            /* message queue wait */
-            printf("hello world\n");
-            sleep(1);
+            switch (mq_cmd)
+            {
+                // TODO
+            }
         }
+        
+        printf("hello world\n");
+        sleep(1);
     }
 
     return 0;
@@ -114,21 +143,25 @@ void create_devices_threads(void)
     /* thread to detect magnetic change */
     pthread_t t_magnetic;
 
-    /* periodically loop */
+    /*
+     *#############################################
+     *# threads to periodically measure something #
+     *#############################################
+     */
     pthread_create(&t_temphumi, (void *)NULL, 
         temphumi_handler, (void *)NULL);
 
-    /* periodically loop */
     pthread_create(&t_photo, (void *)NULL, 
         photo_handler, (void *)NULL);
 
-    /* periodically loop */
     pthread_create(&t_water, (void *)NULL, 
         water_handler, (void *)NULL);
 
-    /* periodically loop */
     pthread_create(&t_magnetic, (void *)NULL, 
         magnetic_handler, (void *)NULL);
+
+    pthread_create(&t_magnetic, (void *)NULL, 
+        moisture_handler, (void *)NULL);
 }
 
 void *temphumi_handler(void *arg)
@@ -173,7 +206,7 @@ void *photo_handler(void *arg)
 
 void *magnetic_handler(void *arg)
 {
-    /* mesaure magnet every 1 sec */
+    /* measure magnet every 1 sec */
     while (1)
     {
         // TODO
@@ -185,6 +218,18 @@ void *magnetic_handler(void *arg)
     }
 
     printf("magnetic handler exited\n");
+    pthread_exit(0);
+}
+
+void *moisture_handler(void *arg)
+{
+    /* measure soil moisture every 1 sec */
+    while (1)
+    {
+        // TODO
+    }
+
+    printf("moisture handler exited\n");
     pthread_exit(0);
 }
 
@@ -568,3 +613,13 @@ void devices_init(void)
 	dryer_init();
 }
 
+void message_queue_init(void)
+{
+    mqd_main = mq_open("/mq_main", 
+        O_CREAT|O_NONBLOCK|O_RDWR, 0666, &attr);
+    if (mqd_main == -1)
+    {
+        PRINT_ERR;
+        exit(1);
+    }
+}
