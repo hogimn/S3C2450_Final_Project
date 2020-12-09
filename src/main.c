@@ -134,7 +134,15 @@ void *temphumi_handler(void *arg)
     while (1)
     {
         // TODO
-        printf("temphumi_handler\n"); 
+		int rc;
+        int data[2];
+        rc = temphumid_read(data);
+        if (rc == TEMPHUMID_OK)
+            printf("%d, %d\n", data[0], data[1]);
+        else	continue;
+        
+        
+        // printf("temphumi_handler\n"); 
         sleep(1);
     }
 
@@ -148,7 +156,11 @@ void *photo_handler(void *arg)
     while (1)
     {
         // TODO
-        printf("photo_handler\n"); 
+        int ret;
+		
+		ret = photo_get_intensity();
+
+		printf("intensity : %d\n",ret); 
         sleep(1); 
     }
 
@@ -162,7 +174,10 @@ void *magnetic_handler(void *arg)
     while (1)
     {
         // TODO
-        printf("magnetic_handler\n");
+		if(magnetic_is_detected())
+		{
+			printf("detected\n");
+		}
         sleep(1); 
     }
 
@@ -547,5 +562,6 @@ void devices_init(void)
     /* do nothing at this moment */
     led_init();
     solenoid_init();
+	dryer_init();
 }
 
