@@ -8,40 +8,42 @@
 #include <string.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <signal.h>
+#include <semaphore.h>
 #include "list.h"
 #include "music.h"
 #include "itoa.h"
 #include "devices.h"
-#include <signal.h>
+#include "network.h"
 
-#define SERVER_TCP_DEFAULT_PORT 3000
-#define BUFLEN 500
 #define PRINT_ERR fprintf(stderr, "%s[%d]: failed\n", \
                           __FUNCTION__, __LINE__)
 
-#define SOCK_CMD_FILE_CLIENT_TO_SERVER   "0"
-#define SOCK_CMD_LIST_SERVER_TO_CLIENT   "1"
-#define SOCK_CMD_DELETE_CLIENT_TO_SERVER "2"
-#define SOCK_CMD_PLAY_CLIENT_TO_SERVER   "3" 
-#define SOCK_CMD_SENSOR_SERVER_TO_CLIENT "4"
-#define SOCK_CMD_CAMERA_SERVER_TO_CLIENT "5"
-#define SOCK_CMD_END                     "-1" 
 #define BUF_SIZE 1024
 #define TRUE 1
 #define FALSE 0
 
 void devices_init(void);
+void create_devices_threads(void);
+
+/* the functions socket_handler calls */
 void receive_file(int sd);
 void delete_file(int sd);
-void transfer_list(int sd);
 void play_music(int sd);
+void transfer_list(int sd);
 void transfer_sensor_data(int sd);
 void transfer_camera_data(int sd);
-void *madplay(void *arg);
+
+/* periodic thread handler */
+void *temphumi_handler(void *arg);
+void *photo_handler(void *arg);
+void *water_handler(void *arg);
+void *magnetic_handler(void *arg);
+void *moisture_handler(void *arg);
+
+/* event-driven thread handler */
 void *socket_handler(void *arg);
-void get_port(int argc, char **argv, int *port);
-void itoa(int n, char s[]);
-char *reverse(char *str);
+void *madplay(void *arg);
 
 char current_music[BUF_SIZE];
 pthread_mutex_t lock;
@@ -49,56 +51,33 @@ pthread_mutex_t lock;
 int main(int argc, char **argv)
 {
     int sd, new_sd, port;
-    int rc;
-    struct sockaddr_in server, client;
-    socklen_t client_addrlen;
-    pthread_t thread_socket;
-
-    /*
-     * when client socket is closed during connection
-     * SIGPIPE will delivered to main program.
-     * SIGPIPE will terminate the program by default.
-     * ignore that signal
-     */
-    signal(SIGPIPE, SIG_IGN);
+    /* thread to handle socket connection */
+    pthread_t t_socket;
 
     /* initialize lock */
     pthread_mutex_init(&lock, 0);
     
-    /* get port number if there is arg */
-    get_port(argc, argv, &port);
-
     /* devices init */
     devices_init();
 
     /*
      * initialize data structure of music and 
-     * fill the list of music in the data structure
+     * get the list of music in from the directory "./music/"
      */
     music_init();
 
-    /* create a stream socket */	
-    sd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sd == -1) 
+    /* create threads to controll devices */
+    create_devices_threads();
+
+    /* get port number if argc > 1 */
+    network_get_port(argc, argv, &port);
+    /* create socket, bind and listen */ 
+    sd = network_server_init(port);
+    if (sd == -1)
     {
         PRINT_ERR;
         exit(1);
     }
-
-    /* bind an address to the socket */
-    bzero((char *)&server, sizeof(struct sockaddr_in));
-    server.sin_family = AF_INET;
-    server.sin_port = htons(port);
-    server.sin_addr.s_addr = htonl(INADDR_ANY);
-    rc = bind(sd, (struct sockaddr *)&server, sizeof(server));
-    if (rc == -1)
-    {
-        PRINT_ERR;
-        exit(1);
-    }
-
-    /* queue up to 5 connect requests */
-    listen(sd, 5);
 
     /*
      * whenever client tries to connect,
@@ -106,10 +85,7 @@ int main(int argc, char **argv)
      */
     while(1)
     {
-        client_addrlen = sizeof(client);
-        new_sd = accept(sd, 
-                        (struct sockaddr *)&client, 
-                        &client_addrlen);
+        new_sd = network_accept_client(sd);
         if (new_sd < 0)
         {
             PRINT_ERR;
@@ -117,13 +93,93 @@ int main(int argc, char **argv)
         }
 
         /* create thread to handle in background */
-        pthread_create(&thread_socket, 
-                       (void *)0, 
-                       socket_handler, 
-                       (void *)&new_sd);
+        pthread_create(&t_socket, (void *)0, 
+                       socket_handler, (void *)&new_sd);
     }
 
     return 0;
+}
+
+void create_devices_threads(void)
+{
+    /* thread to read temparature / humidity */
+    pthread_t t_temphumi;
+    /* thread to detect lack of photo intensity */
+    pthread_t t_photo;
+    /* thread to give water every predetermined interval */
+    pthread_t t_water;
+    /* thread to detect magnetic change */
+    pthread_t t_magnetic;
+
+    /* periodically loop */
+    pthread_create(&t_temphumi, (void *)NULL, 
+        temphumi_handler, (void *)NULL);
+
+    /* periodically loop */
+    pthread_create(&t_photo, (void *)NULL, 
+        photo_handler, (void *)NULL);
+
+    /* periodically loop */
+    pthread_create(&t_water, (void *)NULL, 
+        water_handler, (void *)NULL);
+
+    /* periodically loop */
+    pthread_create(&t_magnetic, (void *)NULL, 
+        magnetic_handler, (void *)NULL);
+}
+
+void *temphumi_handler(void *arg)
+{
+    /* measure temparature/humidity every 1 sec */
+    while (1)
+    {
+        // TODO
+        printf("temphumi_handler\n"); 
+        sleep(1);
+    }
+
+    printf("temphumi handler exited\n");
+    pthread_exit(0);
+}
+
+void *photo_handler(void *arg)
+{
+    /* measure photo intensity every 1 sec */
+    while (1)
+    {
+        // TODO
+        printf("photo_handler\n"); 
+        sleep(1); 
+    }
+
+    printf("photo handler exited\n");
+    pthread_exit(0);
+}
+
+void *magnetic_handler(void *arg)
+{
+    /* mesaure magnet every 1 sec */
+    while (1)
+    {
+        // TODO
+        printf("magnetic_handler\n");
+        sleep(1); 
+    }
+
+    printf("magnetic handler exited\n");
+    pthread_exit(0);
+}
+
+void *water_handler(void *arg)
+{
+    /* give water at specific time */
+    while (1)
+    {
+         
+    }
+
+    printf("water handler exited\n");
+    pthread_exit(0);
 }
 
 void *socket_handler(void *arg)
@@ -427,34 +483,69 @@ void receive_file(int sd)
     pthread_mutex_unlock(&lock);
 }
 
-
 /* pheriperal devices are initialized here */
 void devices_init(void)
 {
-    relay_init();
+    int rc;
+
+    rc = relay_init();
+    if (rc != RELAY_INIT_OK)
+    {
+        PRINT_ERR;
+        exit(1);
+    }
+
+    rc = servo_init();
+    if (rc != SERVO_INIT_OK)
+    {
+        PRINT_ERR;
+        exit(1);
+    }
+
+    rc = moisture_init();
+    if (rc != MOISTURE_INIT_OK)
+    {
+        PRINT_ERR;
+        exit(1);
+    }
+
+    rc = temphumid_init();
+    if (rc != TEMPHUMID_INIT_OK)
+    {
+        PRINT_ERR;
+        exit(1);
+    }
+
+    rc = photo_init();
+    if (rc != PHOTO_INIT_OK)
+    {
+        if (rc == PHOTO_INIT_FILE_OPEN_FAIL)
+        {
+            PRINT_ERR;
+        }
+        if (rc == PHOTO_INIT_I2C_FAIL)
+        {
+            PRINT_ERR;
+        }
+        exit(1);
+    }
+
+    rc = magnetic_init();
+    if (rc != MAGNETIC_INIT_OK)
+    {
+        PRINT_ERR;
+        exit(1);
+    }
+
+    rc = fan_init(); 
+    if (rc != FAN_INIT_OK)
+    {
+        PRINT_ERR;
+        exit(1);
+    }
+
+    /* do nothing at this moment */
     led_init();
-    servo_init();
-    moisture_init();
     solenoid_init();
-    temphumid_init();
-    photo_init();
-    magnetic_init();
-    fan_init(); 
 }
 
-/* set port number manually if argc > 1 */
-void get_port(int argc, char **argv, int *port)
-{
-    switch (argc)
-    {
-        case 1:
-            *port = SERVER_TCP_DEFAULT_PORT;
-            break;
-        case 2:
-            *port = atoi(argv[1]);
-            break;
-        default:
-            fprintf(stderr, "Usage: %s [port]\n", argv[0]);
-            exit(1);
-    }
-}
