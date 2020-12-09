@@ -61,7 +61,7 @@ mqd_t mqd_main;
 
 struct mq_attr attr = {
     .mq_maxmsg = 64, /* entire queue size: 64 * 4 bytes */
-    .mq_msgsize = 4, /* 4 byte per message */
+    .mq_msgsize = 4, /* 1 byte per message */
 };
 
 int main(int argc, char **argv)
@@ -122,6 +122,13 @@ int main(int argc, char **argv)
             switch (mq_cmd)
             {
                 // TODO
+				case '3' : printf("MQ_CMD_LED_ON\n");
+						break;
+				case '4' : printf("MQ_CMD_FAN_OFF\n");
+						break;
+				default : 
+						printf("Unknown error\n");
+						break;
             }
         }
         
@@ -142,6 +149,8 @@ void create_devices_threads(void)
     pthread_t t_water;
     /* thread to detect magnetic change */
     pthread_t t_magnetic;
+    /* thread to measure soil moisture */
+    pthread_t t_moisture;
 
     /*
      *#############################################
@@ -160,7 +169,7 @@ void create_devices_threads(void)
     pthread_create(&t_magnetic, (void *)NULL, 
         magnetic_handler, (void *)NULL);
 
-    pthread_create(&t_magnetic, (void *)NULL, 
+    pthread_create(&t_moisture, (void *)NULL, 
         moisture_handler, (void *)NULL);
 }
 
@@ -171,13 +180,39 @@ void *temphumi_handler(void *arg)
     {
         // TODO
 		int rc;
+		
         int data[2];
+		int humid;
+		int temp;
+		int humid_upper = 10;
+		int humid_under = 8;
+		
         rc = temphumid_read(data);
         if (rc == TEMPHUMID_OK)
             printf("%d, %d\n", data[0], data[1]);
         else
             continue;
-        
+        humid = data[0];
+		temp = data[1];
+		
+		if(humid>humid_upper)
+		{
+			printf("on\n");	// on
+			char buffer = MQ_CMD_FAN_ON;
+			
+			mq_send(mqd_main, (char*)&buffer, attr.mq_msgsize, 0);
+		}
+			
+		else if(humid<humid_under)
+		{
+			printf("off\n");	// off
+			char buffer = MQ_CMD_FAN_OFF;
+			
+			mq_send(mqd_main, (char*)&buffer, attr.mq_msgsize, 0);
+		}
+			
+		
+		
         // printf("temphumi_handler\n"); 
         sleep(1);
     }
