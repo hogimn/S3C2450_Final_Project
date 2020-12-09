@@ -7,14 +7,15 @@
 static int fd_temphumid;
 static char buf[5];
 
-void temphumid_init(void)
+int temphumid_init(void)
 {
     fd_temphumid = open(TEMPHUMID_DEV_PATH, O_RDWR);
     if (fd_temphumid < 0)
     {
-        perror("temphumid_init() failed\n");
-        exit(0);
+        // file open error
+        return !TEMPHUMID_INIT_OK;
     }
+	return TEMPHUMID_INIT_OK;
 }
 
 int temphumid_read(int ret[2])
