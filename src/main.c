@@ -132,7 +132,6 @@ int main(int argc, char **argv)
             switch (mq_cmd)
             {
                 // TODO
-<<<<<<< HEAD
 				case '1' : 
 						printf("MQ_CMD_LED_ON\n");
 						flag_led=1;
