@@ -29,8 +29,8 @@ Directory | Explan.
 ***src*** | Directory where main.c is
 
 ## Steps to build project ##
-### 1. U-boot ###
-In U-boot terminal, add following settings.
+### 1. Change U-Boot NFS settings ###
+In U-Boot terminal, do following settings.
 ```
 set bootargs "root=/dev/nfs rw nfsroot=192.168.100.2:/nfsroot ip=192.168.100.102:192.168.100.2:192.168.100.1:255.255.255.0::eth0:off:netmask=255.255.255.0 console=ttySAC1,115200n81"
 set ipaddr 192.168.100.102
@@ -42,7 +42,7 @@ saveenv (optional)
 In your ubuntu host machine,    
 network interface ip address which is connected to your MDS2450 board is to be 192.168.100.2.
 
-### 2. Modify kernel source code to use platform device driver ###
+### 2. Modify kernel source code to use platform device driver statically ###
 Refer to [here](https://github.com/hogimn/MDS-Embedded-Systems-Final-Project/tree/main/drivers).
 
 ### 3. Build and deploy ###
@@ -91,3 +91,8 @@ Test ping
 ping 192.168.0.1
 ```
 ### 5. Run your program ###
+In your target,
+```
+cd /root/
+./main
+```

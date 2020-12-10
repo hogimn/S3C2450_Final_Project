@@ -98,7 +98,7 @@ void music_remove(char *name)
     rc = remove(path);
     if (rc == -1)
     {
-        PRINT_ERR;        
+        ERR_HANDLE;        
     }
 
     /* remove from music list */
