@@ -9,7 +9,7 @@ int main(void)
     {
 		if(moisture_is_full())
 		{
-			printf("stop watering\n");
+			printf("start draining\n");
 		}
     }
 
