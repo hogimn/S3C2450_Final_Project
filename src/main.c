@@ -62,6 +62,8 @@ char current_music[BUF_SIZE];
  * will be atomically executed (function boundary lock)
  */
 pthread_mutex_t recv_trans_lock;
+
+/* message queue for handling request from sensors */
 mqd_t mqd_main;
 
 struct mq_attr attr = {
@@ -69,10 +71,23 @@ struct mq_attr attr = {
     .mq_msgsize = 4, /* 4 byte per message */
 };
 
+ /* flags to indicate the states of peripheral devices */
 int flag_led;
 int flag_fan;
 int flag_solenoid;
 int flag_drain;
+
+/* 
+ * global variables to store most recent sensor data
+ * shared between {sensor name}_handler() (polling threads) (writer)
+ * and transfer_sensor_data() (reader)
+ * there is no race condition (no two writes at the same time)
+ */
+int temp;
+int humi;
+int photo;
+int magnet;
+int moisture;
 
 int main(int argc, char **argv)
 {
@@ -196,7 +211,6 @@ void message_queue_handler(int mq_cmd)
             printf("invalid message queue command\n");
             break;
     }
-
 }
 
 void create_devices_threads(void)
@@ -239,8 +253,6 @@ void *humitemp_handler(void *arg)
 #if 1
     int rc;
     int humitemp[2];
-    int humi;
-    int temp;
     int humi_upper = 80;
     int humi_under = 70;
     char cmd;
@@ -259,6 +271,7 @@ void *humitemp_handler(void *arg)
             continue;
         }
 
+        /* write to global variable */
         humi = humitemp[0];
         temp = humitemp[1];
 
@@ -273,15 +286,13 @@ void *humitemp_handler(void *arg)
             mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
         }    
         /* humi gets less than predetermined bound and fan is on state */
-        else if (humi < humi_under&& flag_fan==1)
+        else if (humi < humi_under && flag_fan==1)
         {
             printf("FAN OFF\n");
 
             cmd = MQ_CMD_FAN_OFF;
             mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
         }
-
-        /* send to client if there is a request */
 
         sleep(1);
     }
@@ -294,7 +305,6 @@ void *humitemp_handler(void *arg)
 void *photo_handler(void *arg)
 {
 #if 1
-    int intensity;
     int intensity_upper = 800;
     int intensity_under = 500;
     char cmd;
@@ -305,25 +315,25 @@ void *photo_handler(void *arg)
     /* measure photo intensity every 1 sec */
     while (1)
     {
-        intensity = photo_get_intensity();
-        if (intensity == -1)
+        photo = photo_get_intensity();
+        if (photo == -1)
         {
             printf("photo_get_intensity() failed\n");
             sleep(1);
             continue;
         }
         
-        printf("photo intensity: %d\n", intensity); 
+        printf("photo intensity: %d\n", photo); 
         
         /* if photo intensity gets higher than appropriate bound and LED is currently on state */
-        if (intensity > intensity_upper && flag_led==1)
+        if (photo > intensity_upper && flag_led==1)
         {
             printf("LED OFF\n");
             
             cmd = MQ_CMD_LED_OFF;
             mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
         }
-        else if (intensity < intensity_under && flag_led==0)
+        else if (photo < intensity_under && flag_led==0)
         {
             printf("LED ON\n");
             
@@ -350,8 +360,9 @@ void *magnetic_handler(void *arg)
     /* measure magnet every 1 sec */
     while (1)
     {
-        /* if magneti is detected and solenoid is open state */
-        if (magnetic_is_detected() && flag_solenoid==1)
+        /* if magnet is detected and solenoid is open state */
+        magnet = magnetic_is_detected();
+        if (magnet && flag_solenoid==1)
         {
             printf("stop watering\n");
             
@@ -376,8 +387,9 @@ void *moisture_handler(void *arg)
     /* measure soil moisture every 1 sec */
     while (1)
     {
+        moisture = moisture_is_full();
         /* if moisture is full and drainage is close state */
-        if (moisture_is_full() && flag_drain==1)
+        if (moisture && flag_drain==1)
         {
             printf("start draining\n");
             
@@ -489,24 +501,22 @@ void transfer_camera_data(int sd)
 void transfer_sensor_data(int sd)
 {
     char buf[BUF_SIZE];
-    int humitemp[2];
     char str_humi[3];
     char str_temp[3];
-    int rc;
 
     /* loop while client is connected */
     while (1)
     {
-        rc = humitemp_read(humitemp); 
-        if (rc != HUMITEMP_READ_OK)
+        if (temp <= 0 || humi <= 0)
         {
+            printf("temp/humi is not set yet\n");
             sleep(1);
             continue;
         }
 
         /* humi, temp integer to string */
-        itoa(humitemp[0], str_humi);
-        itoa(humitemp[1], str_temp);
+        itoa(humi, str_humi);
+        itoa(temp, str_temp);
 
         /* fill the buffer to send to client */
         sprintf(buf, "%s\n%s\n", str_humi, str_temp);
