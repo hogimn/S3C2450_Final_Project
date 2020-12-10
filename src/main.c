@@ -120,7 +120,7 @@ int main(int argc, char **argv)
         if (new_sd >= 0)
         {
             pthread_create(&t_socket, (void *)0, 
-                    socket_handler, (void *)&new_sd);
+                    socket_handler, (void *)new_sd);
         }
 
         /* non-blocking message queue wait */
@@ -182,9 +182,6 @@ int main(int argc, char **argv)
 						break;
             }
         }
-        
-        //printf("hello world\n");
-        sleep(1);
     }
 
     return 0;
@@ -374,7 +371,7 @@ void *socket_handler(void *arg)
     char buf[BUF_SIZE];
     int bytes_read;
 
-    sd = *(int *)arg;
+    sd = (int)arg;
 
     bytes_read = recv(sd, (void *)buf, 1, 0);
     buf[bytes_read] = '\0'; /* null terminated c-string */
