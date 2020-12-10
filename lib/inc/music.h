@@ -8,9 +8,6 @@
 
 #define END_FOREACH_MUSIC }
 
-#define ERR_HANDLE fprintf(stderr, "%s[%d]: failed\n", \
-        __FUNCTION__, __LINE__); exit(1);
-
 pthread_mutex_t music_lock;
 List *list;
 

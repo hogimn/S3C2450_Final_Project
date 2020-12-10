@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <pthread.h>
 #include "music.h"
+#include "error.h"
 
 void music_init(void)
 {
