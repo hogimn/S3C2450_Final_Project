@@ -9,7 +9,7 @@ int main(void)
     {
 		if(magnetic_is_detected())
 		{
-			printf("detected\n");
+			printf("Stop Watering\n");
 		}
     }
 

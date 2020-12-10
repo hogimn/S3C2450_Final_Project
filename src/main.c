@@ -70,6 +70,11 @@ struct mq_attr attr = {
     .mq_msgsize = 4, /* 4 byte per message */
 };
 
+int flag_led;
+int flag_fan;
+int flag_solenoid;
+int flag_drain;
+
 int main(int argc, char **argv)
 {
     int sd, new_sd, port;
@@ -127,22 +132,61 @@ int main(int argc, char **argv)
             switch (mq_cmd)
             {
                 // TODO
-                case MQ_CMD_FAN_ON: 
-                    printf("MQ_CMD_FAN_ON\n");
-                    break;
-
-                case MQ_CMD_FAN_OFF: 
-                    printf("MQ_CMD_FAN_OFF\n");
-                    break;
-
-                default: 
-                    printf("Unknown error\n");
-                    break;
+<<<<<<< HEAD
+				case '1' : 
+						printf("MQ_CMD_LED_ON\n");
+						flag_led=1;
+						led_on();
+						break;
+						
+				case '2' : 
+						printf("MQ_CMD_LED_OFF\n");
+						flag_led=0;
+						led_off();
+						break;
+						
+				case '3' : 
+						printf("MQ_CMD_FAN_ON\n");
+						flag_fan=1;
+						fan_rotate(FAN_SPEED_FAST);
+						break;
+						
+				case '4' : 
+						printf("MQ_CMD_FAN_OFF\n");
+						flag_fan=0;
+						fan_off();
+						break;
+						
+				case '5' : 
+						printf("MQ_CMD_DRAIN\n");
+						flag_drain = 1;
+						servo_rotate(SERVO_180_DEGREE);
+						break;
+						
+				case '6' : printf("MQ_CMD_DRAIN_STOP\n");
+						flag_drain = 0;
+						servo_rotate(SERVO_0_DEGREE);
+						break;
+						
+				case '7' : 
+						printf("MQ_CMD_SOLENOID_OPEN\n");
+						flag_solenoid=1;
+						solenoid_open();
+						break;
+						
+				case '8' : 
+						printf("MQ_CMD_SOLENOID_CLOSE\n");
+						flag_solenoid=0;
+						solenoid_close();
+						break;
+						
+				default : 
+						printf("Unknown error\n");
+						break;
             }
         }
-
-        /* for test */
-        printf("hello world\n");
+        
+        //printf("hello world\n");
         sleep(1);
     }
 
@@ -185,46 +229,48 @@ void create_devices_threads(void)
 
 void *temphumi_handler(void *arg)
 {
-    /* measure temparature/humidity every 1 sec */
+    flag_fan =0; // FAN_OFF
+	
+	/* measure temparature/humidity every 1 sec */
     while (1)
-    {
-        // TODO
-        int rc;
-
+   {
+#if 0         // TODO
+		int rc;
+		
         int data[2];
-        int humid;
-        int temp;
-        int humid_upper = 10;
-        int humid_under = 8;
-
+		int humid;
+		int temp;
+		int humid_upper = 80;
+		int humid_under = 70;
+		
         rc = temphumid_read(data);
         if (rc == TEMPHUMID_READ_OK)
             printf("%d, %d\n", data[0], data[1]);
         else
             continue;
         humid = data[0];
-        temp = data[1];
-
-        if(humid>humid_upper)
-        {
-            printf("on\n");    // on
-            char buffer = MQ_CMD_FAN_ON;
-
-            mq_send(mqd_main, (char*)&buffer, attr.mq_msgsize, 0);
-        }
-
-        else if(humid<humid_under)
-        {
-            printf("off\n");   // off
-            char buffer = MQ_CMD_FAN_OFF;
-
-            mq_send(mqd_main, (char*)&buffer, attr.mq_msgsize, 0);
-        }
-
-
-
+		temp = data[1];
+		
+		if(humid>humid_upper&& flag_fan==0)
+		{
+			printf("FAN ON\n");	// on
+			char buffer = MQ_CMD_FAN_ON;
+			
+			mq_send(mqd_main, (char*)&buffer, attr.mq_msgsize, 0);
+		}	
+		else if(humid<humid_under&& flag_fan==1)
+		{
+			printf("FAN OFF\n");	// off
+			char buffer = MQ_CMD_FAN_OFF;
+			
+			mq_send(mqd_main, (char*)&buffer, attr.mq_msgsize, 0);
+		}
+			
+		
+		
         // printf("temphumi_handler\n"); 
         sleep(1);
+#endif
     }
 
     printf("temphumi handler exited\n");
@@ -234,20 +280,35 @@ void *temphumi_handler(void *arg)
 void *photo_handler(void *arg)
 {
     /* measure photo intensity every 1 sec */
-    while (1)
+    flag_led=0; // LED_OFF
+	while (1)
     {
-        // TODO
-        int ret;
-
-        ret = photo_get_intensity();
-        if (ret == -1)
-        {
-            sleep(1);
-            continue;
-        }
-
-        printf("intensity : %d\n",ret); 
+#if 0        // TODO
+        int intensity;
+		int intensity_upper = 800;
+		int intensity_under = 500;
+		
+		intensity = photo_get_intensity();
+		
+		printf("intensity : %d\n",intensity); 
+		
+		if(intensity>intensity_upper && flag_led==1)
+		{
+			printf("LED OFF\n");
+			
+			char buffer = MQ_CMD_LED_OFF;
+			mq_send(mqd_main, (char*)&buffer, attr.mq_msgsize, 0);
+		}
+		else if(intensity<intensity_under && flag_led==0)
+		{
+			printf("LED ON\n");
+			
+			char buffer = MQ_CMD_LED_ON;
+			mq_send(mqd_main, (char*)&buffer, attr.mq_msgsize, 0);
+		}
+		
         sleep(1); 
+# endif
     }
 
     printf("photo handler exited\n");
@@ -256,14 +317,19 @@ void *photo_handler(void *arg)
 
 void *magnetic_handler(void *arg)
 {
-    /* measure magnet every 1 sec */
+    flag_solenoid = 1; // 솔벨브 열려있는 상태
+	
+	/* measure magnet every 1 sec */
     while (1)
     {
         // TODO
-        if(magnetic_is_detected())
-        {
-            printf("detected\n");
-        }
+		if(magnetic_is_detected()&&flag_solenoid==1)
+		{
+			printf("stop watering\n");
+			
+			char buffer = MQ_CMD_SOLENOID_CLOSE;
+			mq_send(mqd_main, (char*)&buffer, attr.mq_msgsize, 0);
+		}
         sleep(1); 
     }
 
@@ -273,10 +339,20 @@ void *magnetic_handler(void *arg)
 
 void *moisture_handler(void *arg)
 {
-    /* measure soil moisture every 1 sec */
+    flag_drain = 0; // 배수구 close
+	
+	/* measure soil moisture every 1 sec */
     while (1)
     {
         // TODO
+		if(moisture_is_full()&&flag_drain==0)
+		{
+			printf("start draining\n");
+			
+			char buffer = MQ_CMD_DRAIN;
+			mq_send(mqd_main, (char*)&buffer, attr.mq_msgsize, 0);			
+		}
+		sleep(1);
     }
 
     printf("moisture handler exited\n");

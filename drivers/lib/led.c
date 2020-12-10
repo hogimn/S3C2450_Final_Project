@@ -7,12 +7,12 @@ void led_init(void)
 
 void led_on(void)
 {
-	relay_connect(1);
+	relay_connect(RELAY_CHANNEL_1);
 }
 
 void led_off(void)
 {
-	relay_disconnect(1);
+	relay_disconnect(RELAY_CHANNEL_1);
 }
 
 void led_deinit(void)

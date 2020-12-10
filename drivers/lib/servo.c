@@ -20,6 +20,10 @@ int servo_init(void)
     duty.period = MG995_PWM_PERIOD; 
     ioctl(fd_servo, MG995_PWM_ENABLE);
 	
+	duty.pulse_width = MG995_PWM_DEGREE_0;
+	ioctl(fd_servo, MG995_PWM_DUTYRATE, &duty);
+	sleep(1);
+	
 	return SERVO_INIT_OK;
 }
 
