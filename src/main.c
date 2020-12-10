@@ -33,6 +33,7 @@
 void devices_init(void);
 void create_devices_threads(void);
 void message_queue_init(void);
+void message_queue_handler(int mq_cmd);
 
 /* the functions socket_handler calls */
 void receive_file(int sd);
@@ -109,6 +110,11 @@ int main(int argc, char **argv)
         ERR_HANDLE;
     }
 
+    /* 
+     * non-blocking polling starts 
+     * 1. socket - accept()
+     * 2. message queue - mq_receive()
+     */
     while(1)
     {
         /*
@@ -127,68 +133,80 @@ int main(int argc, char **argv)
         rc = mq_receive(mqd_main, (char*)&mq_cmd, attr.mq_msgsize, 0);
         if (rc >= 0)
         {
-            switch (mq_cmd)
-            {
-                // TODO
-				case '1' : 
-						printf("MQ_CMD_LED_ON\n");
-						flag_led=1;
-						led_on();
-						break;
-						
-				case '2' : 
-						printf("MQ_CMD_LED_OFF\n");
-						flag_led=0;
-						led_off();
-						break;
-						
-				case '3' : 
-						printf("MQ_CMD_FAN_ON\n");
-						flag_fan=1;
-						fan_rotate(FAN_SPEED_FAST);
-						break;
-						
-				case '4' : 
-						printf("MQ_CMD_FAN_OFF\n");
-						flag_fan=0;
-						fan_off();
-						break;
-						
-				case '5' : 
-						printf("MQ_CMD_DRAIN\n");
-						flag_drain = 1;
-						servo_rotate(SERVO_180_DEGREE);
-						break;
-						
-				case '6' : printf("MQ_CMD_DRAIN_STOP\n");
-						flag_drain = 0;
-						servo_rotate(SERVO_0_DEGREE);
-						break;
-						
-				case '7' : 
-						printf("MQ_CMD_SOLENOID_OPEN\n");
-						flag_solenoid=1;
-						solenoid_open();
-						break;
-						
-				case '8' : 
-						printf("MQ_CMD_SOLENOID_CLOSE\n");
-						flag_solenoid=0;
-						solenoid_close();
-						break;
-						
-				default : 
-						printf("Unknown error\n");
-						break;
-            }
+            message_queue_handler(mq_cmd);
         }
     }
 
     return 0;
 }
 
+void message_queue_handler(int mq_cmd)
+{
+    switch (mq_cmd)
+    {
+        case MQ_CMD_LED_ON: 
+            printf("MQ_CMD_LED_ON\n");
+            flag_led=1;
+            led_on();
+            break;
+
+        case MQ_CMD_LED_OFF: 
+            printf("MQ_CMD_LED_OFF\n");
+            flag_led=0;
+            led_off();
+            break;
+
+        case MQ_CMD_FAN_ON: 
+            printf("MQ_CMD_FAN_ON\n");
+            flag_fan=1;
+            fan_rotate(FAN_SPEED_FAST);
+            break;
+
+        case MQ_CMD_FAN_OFF: 
+            printf("MQ_CMD_FAN_OFF\n");
+            flag_fan=0;
+            fan_off();
+            break;
+
+        case MQ_CMD_DRAIN: 
+            printf("MQ_CMD_DRAIN\n");
+            flag_drain = 1;
+            servo_rotate(SERVO_180_DEGREE);
+            break;
+
+        case MQ_CMD_DRAIN_STOP: 
+            printf("MQ_CMD_DRAIN_STOP\n");
+            flag_drain = 0;
+            servo_rotate(SERVO_0_DEGREE);
+            break;
+
+        case MQ_CMD_SOLENOID_OPEN: 
+            printf("MQ_CMD_SOLENOID_OPEN\n");
+            flag_solenoid=1;
+            solenoid_open();
+            break;
+
+        case MQ_CMD_SOLENOID_CLOSE: 
+            printf("MQ_CMD_SOLENOID_CLOSE\n");
+            flag_solenoid=0;
+            solenoid_close();
+            break;
+
+        default : 
+            printf("invalid message queue command\n");
+            break;
+    }
+
+}
+
 void create_devices_threads(void)
 {
+    /*
+     *#############################################
+     *# threads to periodically measure something #
+     *#############################################
+     */
+
     /* thread to read temparature/humidity */
     pthread_t t_humitemp;
     /* thread to detect lack of photo intensity */
@@ -200,11 +218,6 @@ void create_devices_threads(void)
     /* thread to measure soil moisture */
     pthread_t t_moisture;
 
-    /*
-     *#############################################
-     *# threads to periodically measure something #
-     *#############################################
-     */
     pthread_create(&t_humitemp, (void *)NULL, 
             humitemp_handler, (void *)NULL);
 
@@ -223,146 +236,176 @@ void create_devices_threads(void)
 
 void *humitemp_handler(void *arg)
 {
-    flag_fan =0; // FAN_OFF
-	
-	/* measure temparature/humidity every 1 sec */
+#if 1
+    int rc;
+    int humitemp[2];
+    int humi;
+    int temp;
+    int humi_upper = 80;
+    int humi_under = 70;
+    char cmd;
+
+    /* initially fan is off state */
+    flag_fan = 0;
+
+    /* measure temp/humi every 1 sec */
     while (1)
-   {
-#if 0         // TODO
-		int rc;
-		
-        int data[2];
-		int humid;
-		int temp;
-		int humid_upper = 80;
-		int humid_under = 70;
-		
-        rc = humitemp_read(data);
-        if (rc == HUMITEMP_READ_OK)
-            printf("%d, %d\n", data[0], data[1]);
-        else
+    {
+        rc = humitemp_read(humitemp);
+        if (rc != HUMITEMP_READ_OK)
+        {
+            printf("humitemp_read() failed\n");
+            sleep(1);
             continue;
-        humid = data[0];
-		temp = data[1];
-		
-		if(humid>humid_upper&& flag_fan==0)
-		{
-			printf("FAN ON\n");	// on
-			char buffer = MQ_CMD_FAN_ON;
-			
-			mq_send(mqd_main, (char*)&buffer, attr.mq_msgsize, 0);
-		}	
-		else if(humid<humid_under&& flag_fan==1)
-		{
-			printf("FAN OFF\n");	// off
-			char buffer = MQ_CMD_FAN_OFF;
-			
-			mq_send(mqd_main, (char*)&buffer, attr.mq_msgsize, 0);
-		}
-			
-		
-		
-        // printf("humitemp_handler\n"); 
+        }
+
+        humi = humitemp[0];
+        temp = humitemp[1];
+
+        printf("humi: %d, temp: %d\n", humi, temp);
+
+        /* humi is outside of normal range and fan is off state */
+        if (humi > humi_upper && flag_fan==0)
+        {
+            printf("FAN ON\n");
+
+            cmd = MQ_CMD_FAN_ON;
+            mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
+        }    
+        /* humi gets less than predetermined bound and fan is on state */
+        else if (humi < humi_under&& flag_fan==1)
+        {
+            printf("FAN OFF\n");
+
+            cmd = MQ_CMD_FAN_OFF;
+            mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
+        }
+
+        /* send to client if there is a request */
+
         sleep(1);
-#endif
     }
 
-    printf("humitemp handler exited\n");
+    printf("humitemp_handler() exited\n");
     pthread_exit(0);
+#endif
 }
 
 void *photo_handler(void *arg)
 {
+#if 1
+    int intensity;
+    int intensity_upper = 800;
+    int intensity_under = 500;
+    char cmd;
+    
+    /* initially led is off state */
+    flag_led = 0;
+
     /* measure photo intensity every 1 sec */
-    flag_led=0; // LED_OFF
-	while (1)
+    while (1)
     {
-#if 0        // TODO
-        int intensity;
-		int intensity_upper = 800;
-		int intensity_under = 500;
-		
-		intensity = photo_get_intensity();
-		
-		printf("intensity : %d\n",intensity); 
-		
-		if(intensity>intensity_upper && flag_led==1)
-		{
-			printf("LED OFF\n");
-			
-			char buffer = MQ_CMD_LED_OFF;
-			mq_send(mqd_main, (char*)&buffer, attr.mq_msgsize, 0);
-		}
-		else if(intensity<intensity_under && flag_led==0)
-		{
-			printf("LED ON\n");
-			
-			char buffer = MQ_CMD_LED_ON;
-			mq_send(mqd_main, (char*)&buffer, attr.mq_msgsize, 0);
-		}
-		
+        intensity = photo_get_intensity();
+        if (intensity == -1)
+        {
+            printf("photo_get_intensity() failed\n");
+            sleep(1);
+            continue;
+        }
+        
+        printf("photo intensity: %d\n", intensity); 
+        
+        /* if photo intensity gets higher than appropriate bound and LED is currently on state */
+        if (intensity > intensity_upper && flag_led==1)
+        {
+            printf("LED OFF\n");
+            
+            cmd = MQ_CMD_LED_OFF;
+            mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
+        }
+        else if (intensity < intensity_under && flag_led==0)
+        {
+            printf("LED ON\n");
+            
+            cmd = MQ_CMD_LED_ON;
+            mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
+        }
+        
         sleep(1); 
-# endif
     }
 
-    printf("photo handler exited\n");
+    printf("photo_handler() exited\n");
     pthread_exit(0);
+# endif
 }
 
 void *magnetic_handler(void *arg)
 {
-    flag_solenoid = 1; // 솔벨브 열려있는 상태
-	
-	/* measure magnet every 1 sec */
+#if 1
+    char cmd;
+
+    /* initially solenoid is open state */
+    flag_solenoid = 1;
+    
+    /* measure magnet every 1 sec */
     while (1)
     {
-        // TODO
-		if(magnetic_is_detected()&&flag_solenoid==1)
-		{
-			printf("stop watering\n");
-			
-			char buffer = MQ_CMD_SOLENOID_CLOSE;
-			mq_send(mqd_main, (char*)&buffer, attr.mq_msgsize, 0);
-		}
+        /* if magneti is detected and solenoid is open state */
+        if (magnetic_is_detected() && flag_solenoid==1)
+        {
+            printf("stop watering\n");
+            
+            cmd = MQ_CMD_SOLENOID_CLOSE;
+            mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
+        }
         sleep(1); 
     }
 
-    printf("magnetic handler exited\n");
+    printf("magnetic_handler() exited\n");
     pthread_exit(0);
+#endif
 }
 
 void *moisture_handler(void *arg)
 {
-    flag_drain = 0; // 배수구 close
-	
-	/* measure soil moisture every 1 sec */
+#if 1
+    char cmd;
+    /* initially, drainage is open state */
+    flag_drain = 0;
+    
+    /* measure soil moisture every 1 sec */
     while (1)
     {
-        // TODO
-		if(moisture_is_full()&&flag_drain==0)
-		{
-			printf("start draining\n");
-			
-			char buffer = MQ_CMD_DRAIN;
-			mq_send(mqd_main, (char*)&buffer, attr.mq_msgsize, 0);			
-		}
-		sleep(1);
+        /* if moisture is full and drainage is close state */
+        if (moisture_is_full() && flag_drain==1)
+        {
+            printf("start draining\n");
+            
+            cmd = MQ_CMD_DRAIN;
+            mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);            
+        }
+        sleep(1);
     }
 
-    printf("moisture handler exited\n");
+    printf("moisture_handler() exited\n");
     pthread_exit(0);
+#endif
 }
 
 void *water_handler(void *arg)
 {
+#if 1
     /* give water at specific time */
     while (1)
     {
+        /* 1. close drainage */
 
+        /* 2. open solenoid */
     }
 
-    printf("water handler exited\n");
+    printf("water_handler() exited\n");
     pthread_exit(0);
+#endif
 }
 
 void *socket_handler(void *arg)
@@ -408,7 +451,7 @@ void *socket_handler(void *arg)
         transfer_camera_data(sd);
     }
 
-    printf("thread exit\n");
+    printf("socket_handler() exit\n");
     pthread_exit(0);
 }
 
@@ -440,7 +483,7 @@ void transfer_camera_data(int sd)
     free_video_capture();
     free_framebuffer();
 
-    printf("camera data transfer exited\n");
+    printf("transfer_camera_data() exited\n");
 }
 
 void transfer_sensor_data(int sd)
@@ -461,7 +504,7 @@ void transfer_sensor_data(int sd)
             continue;
         }
 
-        /* humidity, temparature integer to string */
+        /* humi, temp integer to string */
         itoa(humitemp[0], str_humi);
         itoa(humitemp[1], str_temp);
 
@@ -482,7 +525,7 @@ void transfer_sensor_data(int sd)
         sleep(1);
     }
 
-    printf("sensor data transfer exited\n");
+    printf("transfer_sensor_data() exited\n");
 }
 
 void play_music(int sd)
@@ -519,6 +562,8 @@ void play_music(int sd)
         bzero(current_music, sizeof(current_music));
         printf("music stoped\n");
     }
+
+    printf("play_music() exited\n");
 }
 
 void *madplay(void *arg)
@@ -529,6 +574,7 @@ void *madplay(void *arg)
     sprintf(buf, "madplay -a0 -r -R 20000 \"./music/%s\"", current_music);
     system(buf);
 
+    printf("madplay() exited\n");
     pthread_exit(0);
 }
 
@@ -554,7 +600,7 @@ void delete_file(int sd)
     }
 
     music_remove(filename);
-    printf("delete completed\n");
+    printf("delete_file() exited\n");
 }
 
 void transfer_list(int sd)
@@ -588,7 +634,7 @@ void transfer_list(int sd)
     sprintf(buf, "%s\n", (const char *)SOCK_CMD_END);
     send(sd, buf, strlen(buf), 0);
 
-    printf("music list transfer completed\n");
+    printf("transfer_list() exited\n");
 
     /* unlock function boundary lock */
     pthread_mutex_unlock(&recv_trans_lock);
@@ -658,7 +704,7 @@ void receive_file(int sd)
     send(sd, buf, strlen(buf), 0);
     close(fd);
 
-    printf("file received completed\n");
+    printf("receive_file() exited\n");
 
     /* unlock function boundary lock */
     pthread_mutex_unlock(&recv_trans_lock);
@@ -723,7 +769,6 @@ void devices_init(void)
     solenoid_init();
     dryer_init();
 }
-
 
 void message_queue_init(void)
 {
