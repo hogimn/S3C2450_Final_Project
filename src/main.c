@@ -15,9 +15,7 @@
 #include "itoa.h"
 #include "devices.h"
 #include "network.h"
-
-#define ERR_HANDLE fprintf(stderr, "%s[%d]: failed\n", \
-        __FUNCTION__, __LINE__); exit(1);
+#include "error.h"
 
 #define BUF_SIZE 1024
 #define TRUE 1
@@ -45,7 +43,7 @@ void transfer_sensor_data(int sd);
 void transfer_camera_data(int sd);
 
 /* periodic thread handler */
-void *temphumi_handler(void *arg);
+void *humitemp_handler(void *arg);
 void *photo_handler(void *arg);
 void *water_handler(void *arg);
 void *magnetic_handler(void *arg);
@@ -195,7 +193,7 @@ int main(int argc, char **argv)
 void create_devices_threads(void)
 {
     /* thread to read temparature/humidity */
-    pthread_t t_temphumi;
+    pthread_t t_humitemp;
     /* thread to detect lack of photo intensity */
     pthread_t t_photo;
     /* thread to give water every predetermined interval */
@@ -210,8 +208,8 @@ void create_devices_threads(void)
      *# threads to periodically measure something #
      *#############################################
      */
-    pthread_create(&t_temphumi, (void *)NULL, 
-            temphumi_handler, (void *)NULL);
+    pthread_create(&t_humitemp, (void *)NULL, 
+            humitemp_handler, (void *)NULL);
 
     pthread_create(&t_photo, (void *)NULL, 
             photo_handler, (void *)NULL);
@@ -226,7 +224,7 @@ void create_devices_threads(void)
             moisture_handler, (void *)NULL);
 }
 
-void *temphumi_handler(void *arg)
+void *humitemp_handler(void *arg)
 {
     flag_fan =0; // FAN_OFF
 	
@@ -242,8 +240,8 @@ void *temphumi_handler(void *arg)
 		int humid_upper = 80;
 		int humid_under = 70;
 		
-        rc = temphumid_read(data);
-        if (rc == TEMPHUMID_READ_OK)
+        rc = humitemp_read(data);
+        if (rc == HUMITEMP_READ_OK)
             printf("%d, %d\n", data[0], data[1]);
         else
             continue;
@@ -267,12 +265,12 @@ void *temphumi_handler(void *arg)
 			
 		
 		
-        // printf("temphumi_handler\n"); 
+        // printf("humitemp_handler\n"); 
         sleep(1);
 #endif
     }
 
-    printf("temphumi handler exited\n");
+    printf("humitemp handler exited\n");
     pthread_exit(0);
 }
 
@@ -459,8 +457,8 @@ void transfer_sensor_data(int sd)
     /* loop while client is connected */
     while (1)
     {
-        rc = temphumid_read(humitemp); 
-        if (rc != TEMPHUMID_READ_OK)
+        rc = humitemp_read(humitemp); 
+        if (rc != HUMITEMP_READ_OK)
         {
             sleep(1);
             continue;
@@ -692,8 +690,8 @@ void devices_init(void)
         ERR_HANDLE;
     }
 
-    rc = temphumid_init();
-    if (rc != TEMPHUMID_INIT_OK)
+    rc = humitemp_init();
+    if (rc != HUMITEMP_INIT_OK)
     {
         ERR_HANDLE;
     }

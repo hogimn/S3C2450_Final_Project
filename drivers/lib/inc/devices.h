@@ -10,7 +10,7 @@
 #include "photo.h"
 #include "servo.h"
 #include "solenoid.h"
-#include "temphumid.h"
+#include "humitemp.h"
 #include "video_capture.h"
 #include "draw_framebuffer.h"
 
