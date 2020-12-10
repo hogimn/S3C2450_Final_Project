@@ -44,6 +44,11 @@ int fan_rotate(int speed)
 	
 }
 
+void fan_off(void)
+{
+	relay_disconnect(RELAY_CHANNEL_3);
+}
+
 void fan_deinit(void)
 {
 	relay_disconnect(3);
