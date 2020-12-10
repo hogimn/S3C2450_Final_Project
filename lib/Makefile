@@ -22,3 +22,7 @@ $(BUILD)/%.o: %.c
 
 clean:
 	@rm -rf $(BUILD)
+
+deploy:
+	cp ./sqlite3/lib/*so*    /nfsroot/lib
+	cp ./sqlite3/bin/sqlite3 /nfsroot/usr/bin
