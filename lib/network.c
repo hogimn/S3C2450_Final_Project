@@ -12,8 +12,7 @@
 int network_server_init(int port)
 {
     struct sockaddr_in server;
-    int rc;
-    int sd;
+    int rc; int sd;
 
     /*
      * when client socket is closed during connection
@@ -97,4 +96,24 @@ int network_recv_poll(int sd, void *buf, int size)
         printf("errno: %d\n", errno);
         sleep(1);
     }
+}
+
+int network_send(int sd, void *buf, int size)
+{
+    int rc;
+    
+    rc = send(sd, buf, size, 0);
+
+    return rc;
+}
+
+int network_send_cmd_end(int sd)
+{
+    int rc;
+    char buf[NETWORK_BUFSIZE];
+
+    sprintf(buf, "%s\n", (const char *)NETWORK_CMD_END);
+    rc = network_send(sd, buf, strlen(buf));
+
+    return rc; 
 }
