@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <errno.h>
+#include <unistd.h>
 #include "network.h"
 
 int network_server_init(int port)
