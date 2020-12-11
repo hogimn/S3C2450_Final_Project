@@ -63,6 +63,10 @@ int servo_rotate(int rotate_amount)
 
 void servo_deinit(void)
 {
+	duty.pulse_width = MG995_PWM_DEGREE_0;
+	ioctl(fd_servo, MG995_PWM_DUTYRATE, &duty);
+	sleep(1);
+	
 	ioctl(fd_servo, MG995_PWM_DISABLE);
 	close(fd_servo);
 }
