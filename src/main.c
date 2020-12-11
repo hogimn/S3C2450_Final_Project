@@ -37,6 +37,7 @@ void devices_init(void);
 void create_polling_threads(void);
 void message_queue_init(void);
 void message_queue_handler(int mq_cmd);
+void resources_deinit(int signum);
 
 /* the functions socket_handler calls */
 void receive_file(int sd);
@@ -101,6 +102,8 @@ int main(int argc, char **argv)
     int sd, new_sd, port;
     char mq_cmd;
     int rc;
+
+    signal(SIGINT, resources_deinit);
 
     /* thread to handle socket connection */
     pthread_t t_socket;
@@ -776,25 +779,25 @@ void devices_init(void)
     rc = relay_init();
     if (rc != RELAY_INIT_OK)
     {
-        ERR_HANDLE;
+//        ERR_HANDLE;
     }
 
     rc = servo_init();
     if (rc != SERVO_INIT_OK)
     {
-        ERR_HANDLE;
+//        ERR_HANDLE;
     }
 
     rc = moisture_init();
     if (rc != MOISTURE_INIT_OK)
     {
-        ERR_HANDLE;
+//        ERR_HANDLE;
     }
 
     rc = humitemp_init();
     if (rc != HUMITEMP_INIT_OK)
     {
-        ERR_HANDLE;
+//        ERR_HANDLE;
     }
 
     rc = photo_init();
@@ -802,36 +805,51 @@ void devices_init(void)
     {
         if (rc == PHOTO_INIT_FILE_OPEN_FAIL)
         {
-            ERR_HANDLE;
+//            ERR_HANDLE;
         }
         if (rc == PHOTO_INIT_I2C_FAIL)
         {
-            ERR_HANDLE;
+//            ERR_HANDLE;
         }
     }
 
     rc = magnetic_init();
     if (rc != MAGNETIC_INIT_OK)
     {
-        ERR_HANDLE;
+//        ERR_HANDLE;
     }
 
     rc = fan_init(); 
     if (rc != FAN_INIT_OK)
     {
-        ERR_HANDLE;
+//        ERR_HANDLE;
     }
     
     rc = humidifier_init(); 
     if (rc != HUMIDIFIER_INIT_OK)
     {
-        ERR_HANDLE;
+//        ERR_HANDLE;
     }
 
     /* do nothing at this moment */
     led_init();
     solenoid_init();
     dryer_init();
+}
+
+void devices_deinit(void)
+{
+    relay_deinit();
+    servo_deinit();
+    moisture_deinit();
+    humitemp_deinit();
+    photo_deinit();
+    magnetic_deinit();
+    fan_deinit();
+    humidifier_deinit();
+    led_deinit();
+    solenoid_deinit();
+    dryer_deinit(); 
 }
 
 void message_queue_init(void)
@@ -843,4 +861,27 @@ void message_queue_init(void)
     {
         ERR_HANDLE;
     }
+}
+
+void message_queue_deinit(void)
+{
+    int rc;
+
+    rc = mq_close(mqd_main); 
+    if (rc == -1)
+    {
+        ERR_HANDLE;
+    }
+}
+
+void resources_deinit(int signum)
+{
+    devices_deinit();
+    music_deinit();
+    database_deinit();
+    message_queue_deinit();
+
+    printf("resources successfully deinitialized\n");
+
+    exit(1);
 }
