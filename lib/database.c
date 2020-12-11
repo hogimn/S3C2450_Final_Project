@@ -1,11 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "database.h"
+#include "network.h"
 #include "error.h"
 
 #define DATABASE_SQL_SIZE 128
 
-static int database_humitemp_retrieve_callback(void *unused, int count, char **data, char **columns);
+static int database_data_socket_transfer_callback(void *unused, int count, char **data, char **columns);
 
 void database_init(const char *filename)
 {
@@ -39,8 +40,6 @@ void database_init(const char *filename)
         sqlite3_close(db);
         ERR_HANDLE;
     }
-
-    database_retrieve_list_init();
 }
 
 void database_deinit(void)
@@ -60,7 +59,7 @@ void database_humitemp_insert(int humi, int temp)
     char *err_msg;
     char sql[DATABASE_SQL_SIZE];
     sprintf(sql, "INSERT INTO humitemp (humi, temp) VALUES (%d, %d);",
-        temp, humi);
+        humi, temp);
     
     rc = sqlite3_exec(db, sql, 0, 0, &err_msg);
     if (rc != SQLITE_OK)
@@ -144,27 +143,25 @@ void database_moisture_insert(int moisture)
     }
 }
 
-void database_retrieve_list_init(void)
-{
-    list_humitemp = (List *) malloc(sizeof(List));
-    list_init(list_humitemp, free);
-}
-
-void database_retrieve_list_deinit(void)
-{
-    list_destroy(list_humitemp);
-}
-
-void database_humitemp_retrieve_all(void)
+void database_data_socket_transfer(int sd, int sensor)
 {
     int rc;
     char *err_msg;
     char sql[DATABASE_SQL_SIZE];
-    sprintf(sql, "SELECT humi, temp FROM humitemp;");
+
+    if (sensor == DATABASE_SOCKET_HUMI)
+    {
+        sprintf(sql, "SELECT humi FROM humitemp;");
+    }
+    else if (sensor == DATABASE_SOCKET_TEMP)
+    {
+        sprintf(sql, "SELECT temp FROM humitemp;");
+        printf("select temp");
+    }
     
     rc = sqlite3_exec(db, sql, 
-            database_humitemp_retrieve_callback, 
-            0, &err_msg);
+            database_data_socket_transfer_callback, 
+            (void *)sd, &err_msg);
 
     if (rc != SQLITE_OK)
     {
@@ -175,8 +172,21 @@ void database_humitemp_retrieve_all(void)
     }
 }
 
-static int database_humitemp_retrieve_callback(void *unused, int count, char **data, char **columns)
+static int database_data_socket_transfer_callback
+    (void *arg, int count, char **data, char **columns)
 {
-    // TODO
+    int idx;
+    int sd;
+    char buf[NETWORK_BUFSIZE];
+
+    sd = (int)arg;
+
+    sprintf(buf, "%s\n", data[0]);
+
+    if (-1 == network_send(sd, buf, strlen(buf)))
+    {
+        printf("connection failed\n");
+    }
+
     return 0;
 }
