@@ -11,6 +11,7 @@
 #include "servo.h"
 #include "solenoid.h"
 #include "humitemp.h"
+#include "humidifier.h"
 #include "video_capture.h"
 #include "draw_framebuffer.h"
 
