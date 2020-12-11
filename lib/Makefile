@@ -6,8 +6,8 @@ SOURCE	:= .
 SOURCES	:= $(shell find $(SOURCE) -name '*.c')
 OBJECTS	:= $(addprefix $(BUILD)/,$(SOURCES:%.c=%.o))
 
-CFLAGS	:= -Wall -g -Iinc
-LDFLAGS	:= -lc 
+CFLAGS	:= -Wall -g -Iinc -I./sqlite3/include/
+LDFLAGS	:= -L./sqlite3/lib/ -lsqlite3
 
 all: DRIVERS_LIB
 
@@ -18,7 +18,7 @@ DRIVERS_LIB: $(OBJECTS)
 $(BUILD)/%.o: %.c
 	@echo - $<
 	@mkdir -p $(BUILD)/$(SOURCE)
-	@$(CC) $(CFLAGS) -I$(dir $<) -c $< -o $@
+	@$(CC) $(CFLAGS) -I$(dir $<) -c $< -o $@ $(LDFLAGS)
 
 clean:
 	@rm -rf $(BUILD)
