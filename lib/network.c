@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <errno.h>
 #include "network.h"
 
 int network_server_init(int port)
@@ -75,5 +76,24 @@ void network_get_port(int argc, char **argv, int *port)
         default:
             fprintf(stderr, "Usage: %s [port]\n", argv[0]);
             exit(1);
+    }
+}
+
+int network_recv_poll(int sd, void *buf, int size)
+{
+    int bytes_read;
+
+    /* polling recv */
+    while (1)
+    {
+        bytes_read = recv(sd, buf, size, 0);
+        if (bytes_read != -1)
+        {
+            return bytes_read;
+        }
+
+        /* for debug */
+        printf("errno: %d\n", errno);
+        sleep(1);
     }
 }

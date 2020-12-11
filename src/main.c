@@ -31,7 +31,7 @@
 #define MQ_CMD_SOLENOID_CLOSE   '8'
 
 void devices_init(void);
-void create_devices_threads(void);
+void create_polling_threads(void);
 void message_queue_init(void);
 void message_queue_handler(int mq_cmd);
 
@@ -112,8 +112,8 @@ int main(int argc, char **argv)
 
     message_queue_init();
 
-    /* create threads to controll devices */
-    create_devices_threads();
+    /* create threads to measure sensor data via polling */
+    create_polling_threads();
 
     /* get port number if argc > 1 */
     network_get_port(argc, argv, &port);
@@ -213,7 +213,7 @@ void message_queue_handler(int mq_cmd)
     }
 }
 
-void create_devices_threads(void)
+void create_polling_threads(void)
 {
     /*
      *#############################################
@@ -428,7 +428,7 @@ void *socket_handler(void *arg)
 
     sd = (int)arg;
 
-    bytes_read = recv(sd, (void *)buf, 1, 0);
+    bytes_read = network_recv_poll(sd, (void *)buf, BUF_SIZE-1);
     buf[bytes_read] = '\0'; /* null terminated c-string */
 
     printf("received command: %s\n", buf);
@@ -546,7 +546,7 @@ void play_music(int sd)
     pthread_t thread_madplay;
 
     /* receive file name */
-    bytes_read = recv(sd, (void *)buf, BUF_SIZE, 0);
+    bytes_read = network_recv_poll(sd, (void *)buf, BUF_SIZE-1);
     buf[bytes_read] = '\0';
 
     strcpy(filename, buf);
@@ -596,7 +596,7 @@ void delete_file(int sd)
     int bytes_read;
 
     /* receive file name */
-    bytes_read = recv(sd, (void *)buf, BUF_SIZE, 0);
+    bytes_read = network_recv_poll(sd, (void *)buf, BUF_SIZE-1);
     buf[bytes_read] = '\0';
 
     /* store it to filename */
@@ -662,7 +662,7 @@ void receive_file(int sd)
     pthread_mutex_lock(&recv_trans_lock);
 
     /* receive file name */
-    bytes_read = recv(sd, (void *)buf, BUF_SIZE, 0);
+    bytes_read = network_recv_poll(sd, (void *)buf, BUF_SIZE-1);
     buf[bytes_read] = '\0';
 
     /* store it to filename */
@@ -683,7 +683,7 @@ void receive_file(int sd)
     while (1)
     {
         /* read data from client */
-        bytes_read = recv(sd, (void *)buf, BUF_SIZE, 0);
+        bytes_read = network_recv_poll(sd, (void *)buf, BUF_SIZE-1);
         /* when client socket is closed */
         if (bytes_read == 0) 
         {
