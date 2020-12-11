@@ -1,10 +1,7 @@
 #include <stdio.h>
 #include <fcntl.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <stdlib.h>
-#include <netinet/in.h>
 #include <string.h>
 #include <pthread.h>
 #include <unistd.h>
@@ -18,7 +15,6 @@
 #include "database.h"
 #include "error.h"
 
-#define BUF_SIZE 1024
 #define TRUE 1
 #define FALSE 0
 
@@ -46,6 +42,7 @@ void play_music(int sd);
 void transfer_list(int sd);
 void transfer_sensor_data(int sd);
 void transfer_camera_data(int sd);
+void transfer_database_sensor_data(int sd, int sensor);
 
 /* periodic thread handler */
 void *humitemp_handler(void *arg);
@@ -59,7 +56,7 @@ void *socket_handler(void *arg);
 void *madplay(void *arg);
 
 /* contains the title of currently playing music */
-char current_music[BUF_SIZE];
+char current_music[NETWORK_BUFSIZE];
 
 /* 
  * receive_file() and transfer_list()
@@ -474,44 +471,54 @@ void *water_handler(void *arg)
 void *socket_handler(void *arg)
 {
     int sd;
-    char buf[BUF_SIZE];
+    char buf[NETWORK_BUFSIZE];
     int bytes_read;
 
     sd = (int)arg;
 
-    bytes_read = network_recv_poll(sd, (void *)buf, BUF_SIZE-1);
+    bytes_read = network_recv_poll(sd, (void *)buf, NETWORK_BUFSIZE-1);
     buf[bytes_read] = '\0'; /* null terminated c-string */
 
     printf("received command: %s\n", buf);
 
     /* command 0: receive file from client */
-    if (!strcmp(buf, SOCK_CMD_FILE_CLIENT_TO_SERVER))
+    if (!strcmp(buf, NETWORK_CMD_FILE_CLIENT_TO_SERVER))
     {
         receive_file(sd);
     } /* command 1: transfer music list to client */
-    else if (!strcmp(buf, SOCK_CMD_LIST_SERVER_TO_CLIENT))
+    else if (!strcmp(buf, NETWORK_CMD_LIST_SERVER_TO_CLIENT))
     {
         transfer_list(sd);
     }
     /* command 2: delete file */
-    else if (!strcmp(buf, SOCK_CMD_DELETE_CLIENT_TO_SERVER))
+    else if (!strcmp(buf, NETWORK_CMD_DELETE_CLIENT_TO_SERVER))
     {
         delete_file(sd);
     }
     /* command 3: play the music */
-    else if (!strcmp(buf, SOCK_CMD_PLAY_CLIENT_TO_SERVER))
+    else if (!strcmp(buf, NETWORK_CMD_PLAY_CLIENT_TO_SERVER))
     {
         play_music(sd);
     }
     /* command 4: transfer sensor data to client */
-    else if (!strcmp(buf, SOCK_CMD_SENSOR_SERVER_TO_CLIENT))
+    else if (!strcmp(buf, NETWORK_CMD_SENSOR_SERVER_TO_CLIENT))
     {
         transfer_sensor_data(sd);
     }
     /* command 5: transfer camera data to client */
-    else if (!strcmp(buf, SOCK_CMD_CAMERA_SERVER_TO_CLIENT))
+    else if (!strcmp(buf, NETWORK_CMD_CAMERA_SERVER_TO_CLIENT))
     {
         transfer_camera_data(sd);
+    }
+    /* command 6: transfer humi database data to client */
+    else if (!strcmp(buf, NETWORK_CMD_HUMI_SERVER_TO_CLIENT))
+    {
+        transfer_database_sensor_data(sd, DATABASE_SOCKET_HUMI);
+    }
+    /* command 7: transfer temp database data to client */
+    else if (!strcmp(buf, NETWORK_CMD_TEMP_SERVER_TO_CLIENT))
+    {
+        transfer_database_sensor_data(sd, DATABASE_SOCKET_TEMP);
     }
 
     printf("socket_handler() exit\n");
@@ -536,7 +543,7 @@ void transfer_camera_data(int sd)
          * if client is disconnected, SIGPIPE will be ignored
          * and send will return -1 
          */
-        if (-1 == send(sd, src_image, height*width*3, 0))
+        if (-1 == network_send(sd, src_image, height*width*3))
         {
             printf("connection failed\n");
             break; 
@@ -551,7 +558,7 @@ void transfer_camera_data(int sd)
 
 void transfer_sensor_data(int sd)
 {
-    char buf[BUF_SIZE];
+    char buf[NETWORK_BUFSIZE];
     char str_humi[3];
     char str_temp[3];
 
@@ -571,13 +578,14 @@ void transfer_sensor_data(int sd)
 
         /* fill the buffer to send to client */
         sprintf(buf, "%s\n%s\n", str_humi, str_temp);
+        printf("transfer sensor data\n");
         printf("%s", buf);
 
         /* 
          * if client is disconnected, SIGPIPE will be ignored
          * and send will return -1 
          */
-        if (-1 == send(sd, buf, strlen(buf), 0))
+        if (-1 == network_send(sd, buf, strlen(buf)))
         {
             printf("connection failed\n");
             break; 
@@ -591,13 +599,13 @@ void transfer_sensor_data(int sd)
 
 void play_music(int sd)
 {
-    char buf[BUF_SIZE];
-    char filename[BUF_SIZE];
+    char buf[NETWORK_BUFSIZE];
+    char filename[NETWORK_BUFSIZE];
     int bytes_read;
     pthread_t thread_madplay;
 
     /* receive file name */
-    bytes_read = network_recv_poll(sd, (void *)buf, BUF_SIZE-1);
+    bytes_read = network_recv_poll(sd, (void *)buf, NETWORK_BUFSIZE-1);
     buf[bytes_read] = '\0';
 
     strcpy(filename, buf);
@@ -629,7 +637,7 @@ void play_music(int sd)
 
 void *madplay(void *arg)
 {
-    char buf[BUF_SIZE];
+    char buf[NETWORK_BUFSIZE];
 
     sleep(1);
     sprintf(buf, "madplay -a0 -r -R 20000 \"./music/%s\"", current_music);
@@ -641,13 +649,13 @@ void *madplay(void *arg)
 
 void delete_file(int sd)
 {
-    char buf[BUF_SIZE];
-    char filename[BUF_SIZE];
+    char buf[NETWORK_BUFSIZE];
+    char filename[NETWORK_BUFSIZE];
 
     int bytes_read;
 
     /* receive file name */
-    bytes_read = network_recv_poll(sd, (void *)buf, BUF_SIZE-1);
+    bytes_read = network_recv_poll(sd, (void *)buf, NETWORK_BUFSIZE-1);
     buf[bytes_read] = '\0';
 
     /* store it to filename */
@@ -666,7 +674,8 @@ void delete_file(int sd)
 
 void transfer_list(int sd)
 {
-    char buf[BUF_SIZE];
+    int rc;
+    char buf[NETWORK_BUFSIZE];
 
     /* lock function boundary */
     pthread_mutex_lock(&recv_trans_lock);
@@ -677,23 +686,34 @@ void transfer_list(int sd)
      */
     FOREACH_MUSIC
         sprintf(buf, "%s\n", (const char *)head->data); 
-        send(sd, buf, strlen(buf), 0);
+        network_send(sd, buf, strlen(buf));
         printf("trasnferring... %s\n", buf);
     END_FOREACH_MUSIC
 
     /* notify to client that transfer is over */
-    sprintf(buf, "%s\n", (const char *)SOCK_CMD_END);
-    send(sd, buf, strlen(buf), 0);
+    rc = network_send_cmd_end(sd);
+    if (rc == -1)
+    {
+        ERR_HANDLE;
+    }
+    if (rc == -1)
+    {
+        ERR_HANDLE;
+    }
 
     /* send currently played music name */
     if (strcmp(current_music, ""))
     {
         sprintf(buf, "%s\n", current_music);
-        send(sd, buf, strlen(buf), 0);
+        network_send(sd, buf, strlen(buf));
     }
+
     /* notify to client that transfer is over */
-    sprintf(buf, "%s\n", (const char *)SOCK_CMD_END);
-    send(sd, buf, strlen(buf), 0);
+    rc = network_send_cmd_end(sd);
+    if (rc == -1)
+    {
+        ERR_HANDLE;
+    }
 
     printf("transfer_list() exited\n");
 
@@ -703,17 +723,18 @@ void transfer_list(int sd)
 
 void receive_file(int sd)
 {
-    char buf[BUF_SIZE];
-    char filename[BUF_SIZE];
+    char buf[NETWORK_BUFSIZE];
+    char filename[NETWORK_BUFSIZE];
 
     int fd;
+    int rc;
     int bytes_read, bytes_written;
 
     /* lock function boundary */
     pthread_mutex_lock(&recv_trans_lock);
 
     /* receive file name */
-    bytes_read = network_recv_poll(sd, (void *)buf, BUF_SIZE-1);
+    bytes_read = network_recv_poll(sd, (void *)buf, NETWORK_BUFSIZE-1);
     buf[bytes_read] = '\0';
 
     /* store it to filename */
@@ -734,7 +755,7 @@ void receive_file(int sd)
     while (1)
     {
         /* read data from client */
-        bytes_read = network_recv_poll(sd, (void *)buf, BUF_SIZE-1);
+        bytes_read = network_recv_poll(sd, (void *)buf, NETWORK_BUFSIZE-1);
         /* when client socket is closed */
         if (bytes_read == 0) 
         {
@@ -761,14 +782,41 @@ void receive_file(int sd)
     music_add(filename);
     music_print();
 
-    sprintf(buf, "%s\n", (const char *)SOCK_CMD_END);
-    send(sd, buf, strlen(buf), 0);
+    rc = network_send_cmd_end(sd);
+    if (rc == -1)
+    {
+        ERR_HANDLE;
+    }
+
     close(fd);
 
     printf("receive_file() exited\n");
 
     /* unlock function boundary lock */
     pthread_mutex_unlock(&recv_trans_lock);
+}
+
+void transfer_humi_data(int sd)
+{
+    database_data_socket_transfer(sd, DATABASE_SOCKET_HUMI); 
+
+    pthread_exit(0);
+    printf("transfer_humi_data() exited\n");
+}
+
+void transfer_database_sensor_data(int sd, int sensor)
+{
+    if (sensor == DATABASE_SOCKET_HUMI)
+    {
+        database_data_socket_transfer(sd, DATABASE_SOCKET_HUMI); 
+    }
+    else if (sensor == DATABASE_SOCKET_TEMP)
+    {
+        database_data_socket_transfer(sd, DATABASE_SOCKET_TEMP); 
+    }
+
+    pthread_exit(0);
+    printf("transfer_temp_data() exited\n");
 }
 
 /* pheriperal devices are initialized here */
