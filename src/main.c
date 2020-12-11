@@ -15,6 +15,7 @@
 #include "itoa.h"
 #include "devices.h"
 #include "network.h"
+#include "database.h"
 #include "error.h"
 
 #define BUF_SIZE 1024
@@ -66,6 +67,9 @@ pthread_mutex_t recv_trans_lock;
 /* message queue for handling request from sensors */
 mqd_t mqd_main;
 
+/* database file name */
+const char database_filename[] = "sensor.db";
+
 struct mq_attr attr = {
     .mq_maxmsg = 64, /* entire queue size: 64*4 bytes */
     .mq_msgsize = 4, /* 4 byte per message */
@@ -109,6 +113,12 @@ int main(int argc, char **argv)
      * get the list of music in from the directory "./music/"
      */
     music_init();
+
+    /* 
+     * open database with given file name 
+     * and create necessary tables it not exists
+     */
+    database_init(database_filename);
 
     message_queue_init();
 
@@ -293,6 +303,9 @@ void *humitemp_handler(void *arg)
             cmd = MQ_CMD_FAN_OFF;
             mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
         }
+
+        /* store into database table "humitemp" */
+        database_humitemp_insert(humi, temp);
 
         sleep(1);
     }
