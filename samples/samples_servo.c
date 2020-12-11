@@ -8,6 +8,9 @@ int main(void)
 
 	servo_rotate(SERVO_180_DEGREE);
 	sleep(1);
+    
+    servo_rotate(SERVO_0_DEGREE);
+	sleep(1);
 	
 	servo_rotate(SERVO_135_DEGREE);
 	sleep(1);
@@ -18,8 +21,7 @@ int main(void)
 	servo_rotate(SERVO_45_DEGREE);
 	sleep(1);
 	
-	servo_rotate(SERVO_0_DEGREE);
-	sleep(1);
+	
 
 
     servo_deinit();
