@@ -30,6 +30,8 @@
 #define MQ_CMD_DRAIN_STOP       '6'
 #define MQ_CMD_SOLENOID_OPEN    '7'
 #define MQ_CMD_SOLENOID_CLOSE   '8'
+#define MQ_CMD_HUMIDIFIER_ON       '9'
+#define MQ_CMD_HUMIDIFIER_OFF   '0'
 
 void devices_init(void);
 void create_polling_threads(void);
@@ -80,6 +82,7 @@ int flag_led;
 int flag_fan;
 int flag_solenoid;
 int flag_drain;
+int flag_humidifier;
 
 /* 
  * global variables to store most recent sensor data
@@ -217,6 +220,18 @@ void message_queue_handler(int mq_cmd)
             solenoid_close();
             break;
 
+        case MQ_CMD_HUMIDIFIER_ON : 
+            printf("MQ_CMD_HUMIDIFIER_ON\n");
+            flag_humidifier=1;
+            humidifier_on();
+            break;
+
+        case MQ_CMD_HUMIDIFIER_OFF : 
+            printf("MQ_CMD_HUMIDIFIER_OFF\n");
+            flag_humidifier=0;
+            humidifier_off();
+            break;
+
         default : 
             printf("invalid message queue command\n");
             break;
@@ -263,8 +278,10 @@ void *humitemp_handler(void *arg)
 #if 1
     int rc;
     int humitemp[2];
-    int humi_upper = 80;
-    int humi_under = 70;
+    int humid_upper_fan = 80;
+    int humid_under_fan = 70;
+    int humid_upper_humidifier = 75;
+    int humid_under_humidifier = 60;
     char cmd;
 
     /* initially fan is off state */
@@ -287,8 +304,9 @@ void *humitemp_handler(void *arg)
 
         printf("humi: %d, temp: %d\n", humi, temp);
 
+#if 1   
         /* humi is outside of normal range and fan is off state */
-        if (humi > humi_upper && flag_fan==0)
+        if (humi > humid_upper_fan && flag_fan==0)
         {
             printf("FAN ON\n");
 
@@ -296,18 +314,35 @@ void *humitemp_handler(void *arg)
             mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
         }    
         /* humi gets less than predetermined bound and fan is on state */
-        else if (humi < humi_under && flag_fan==1)
+        else if (humi < humid_under_fan && flag_fan==1)
         {
             printf("FAN OFF\n");
 
             cmd = MQ_CMD_FAN_OFF;
             mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
         }
+#endif
 
+#if 1 
+        if (humi > humid_upper_humidifier && flag_humidifier==1)
+        {
+            printf("humidifier_off\n");
+            cmd = MQ_CMD_HUMIDIFIER_OFF;
+
+            mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
+        }
+        else if (humi < humid_under_humidifier && flag_humidifier==0)
+        {
+            printf("humidifier_on\n");
+            cmd = MQ_CMD_HUMIDIFIER_ON;
+
+            mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
+        }
+#endif
         /* store into database table "humitemp" */
         database_humitemp_insert(humi, temp);
 
-        sleep(1);
+        sleep(2);
     }
 
     printf("humitemp_handler() exited\n");
@@ -783,6 +818,12 @@ void devices_init(void)
 
     rc = fan_init(); 
     if (rc != FAN_INIT_OK)
+    {
+        ERR_HANDLE;
+    }
+    
+    rc = humidifier_init(); 
+    if (rc != HUMIDIFIER_INIT_OK)
     {
         ERR_HANDLE;
     }
