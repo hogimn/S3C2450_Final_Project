@@ -28,6 +28,19 @@ int magnetic_is_detected(void)
 	return !ret;
 }
 
+int mag_valid_detectection()
+{
+    if(magnetic_is_detected())
+    {
+        sleep(2);
+        if(magnetic_is_detected())
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 void magnetic_deinit(void)
 {
 	close(fd_magnetic);

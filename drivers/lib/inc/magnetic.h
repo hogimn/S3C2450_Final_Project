@@ -10,5 +10,6 @@
 int magnetic_init(void);
 int magnetic_is_detected(void);
 void magnetic_deinit(void);
+int mag_valid_detectection(void);
 
 #endif

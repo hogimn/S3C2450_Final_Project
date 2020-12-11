@@ -412,7 +412,7 @@ void *magnetic_handler(void *arg)
     while (1)
     {
         /* if magnet is detected and solenoid is open state */
-        magnet = magnetic_is_detected();
+        magnet = mag_valid_detectection();
         if (magnet && flag_solenoid==1)
         {
             printf("stop watering\n");
