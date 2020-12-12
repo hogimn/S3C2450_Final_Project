@@ -15,9 +15,6 @@
 #include "database.h"
 #include "error.h"
 
-#define TRUE 1
-#define FALSE 0
-
 /* message queue command */
 #define MQ_CMD_LED_ON           '1'
 #define MQ_CMD_LED_OFF          '2'
@@ -68,7 +65,6 @@ void *state_handler(void *arg);    /* every 1 sec */
 
 /* event-driven thread handler */
 void *socket_handler(void *arg);
-void *madplay(void *arg);
 
 /* contains the title of currently playing music */
 char current_music[NETWORK_BUFSIZE];
@@ -187,7 +183,7 @@ void message_queue_handler(int mq_cmd)
 {
     switch (mq_cmd)
     {
-        case MQ_CMD_LED_ON: 
+        case MQ_CMD_LED_ON:
 
             printf("MQ_CMD_LED_ON\n");
 
@@ -195,7 +191,7 @@ void message_queue_handler(int mq_cmd)
             g_state_led = STATE_LED_ON;
             break;
 
-        case MQ_CMD_LED_OFF: 
+        case MQ_CMD_LED_OFF:
 
             printf("MQ_CMD_LED_OFF\n");
 
@@ -203,7 +199,7 @@ void message_queue_handler(int mq_cmd)
             g_state_led = STATE_LED_OFF;
             break;
 
-        case MQ_CMD_FAN_ON: 
+        case MQ_CMD_FAN_ON:
 
             printf("MQ_CMD_FAN_ON\n");
 
@@ -211,7 +207,7 @@ void message_queue_handler(int mq_cmd)
             g_state_fan = STATE_FAN_ON;
             break;
 
-        case MQ_CMD_FAN_OFF: 
+        case MQ_CMD_FAN_OFF:
 
             printf("MQ_CMD_FAN_OFF\n");
 
@@ -219,7 +215,7 @@ void message_queue_handler(int mq_cmd)
             g_state_fan = STATE_FAN_OFF;
             break;
 
-        case MQ_CMD_DRAIN: 
+        case MQ_CMD_DRAIN:
 
             printf("MQ_CMD_DRAIN\n");
 
@@ -227,7 +223,7 @@ void message_queue_handler(int mq_cmd)
             g_state_drain = STATE_DRAIN_OPEN;
             break;
 
-        case MQ_CMD_DRAIN_STOP: 
+        case MQ_CMD_DRAIN_STOP:
 
             printf("MQ_CMD_DRAIN_STOP\n");
 
@@ -235,7 +231,7 @@ void message_queue_handler(int mq_cmd)
             g_state_drain = STATE_DRAIN_CLOSE;
             break;
 
-        case MQ_CMD_SOLENOID_OPEN: 
+        case MQ_CMD_SOLENOID_OPEN:
 
             printf("MQ_CMD_SOLENOID_OPEN\n");
 
@@ -243,7 +239,7 @@ void message_queue_handler(int mq_cmd)
             g_state_solenoid = STATE_SOLENOID_OPEN;
             break;
 
-        case MQ_CMD_SOLENOID_CLOSE: 
+        case MQ_CMD_SOLENOID_CLOSE:
 
             printf("MQ_CMD_SOLENOID_CLOSE\n");
 
@@ -251,7 +247,7 @@ void message_queue_handler(int mq_cmd)
             g_state_solenoid = STATE_SOLENOID_CLOSE;
             break;
 
-        case MQ_CMD_HUMIDIFIER_ON: 
+        case MQ_CMD_HUMIDIFIER_ON:
 
             printf("MQ_CMD_HUMIDIFIER_ON\n");
 
@@ -306,7 +302,7 @@ void create_polling_threads(void)
     pthread_create(&t_moisture, (void *)NULL, 
             moisture_handler, (void *)NULL);
 
-    pthread_create(&t_state, (void *)NULL,
+    pthread_create(&t_state, (void *)NULL, 
             state_handler, (void *)NULL);
 
     pthread_create(&t_water, (void *)NULL, 
@@ -677,7 +673,6 @@ void play_music(int sd)
     char buf[NETWORK_BUFSIZE];
     char filename[NETWORK_BUFSIZE];
     int bytes_read;
-    pthread_t thread_madplay;
 
     /* receive file name */
     bytes_read = network_recv_poll(sd, (void *)buf, NETWORK_BUFSIZE-1);
@@ -696,9 +691,8 @@ void play_music(int sd)
     if (strcmp(current_music, filename))
     {
         strcpy(current_music, filename);
-
-        pthread_create(&thread_madplay, (void *)0,
-                madplay, (void *)0);
+        sprintf(buf, "madplay -a0 -r -R 20000 \"./music/%s\"", current_music);
+        system(buf);
     }
     /* clear current_music */
     else
@@ -708,17 +702,7 @@ void play_music(int sd)
     }
 
     printf("play_music() exited\n");
-}
-
-void *madplay(void *arg)
-{
-    char buf[100];
-
-    sleep(1);
-    sprintf(buf, "madplay -a0 -r -R 20000 \"./music/%s\"", current_music);
-    system(buf);
-
-    printf("madplay() exited\n"); pthread_exit(0);
+    pthread_exit(0);
 }
 
 void delete_file(int sd)
