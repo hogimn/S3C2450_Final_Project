@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "database.h"
 #include "network.h"
 #include "error.h"
@@ -89,7 +90,7 @@ void database_photo_insert(int photo)
     }
 }
 
-void database_water_inset(int water)
+void database_water_insert(int water)
 {
     int rc;
     char *err_msg;
@@ -175,7 +176,6 @@ void database_data_socket_transfer(int sd, int sensor)
 static int database_data_socket_transfer_callback
     (void *arg, int count, char **data, char **columns)
 {
-    int idx;
     int sd;
     char buf[NETWORK_BUFSIZE];
 
