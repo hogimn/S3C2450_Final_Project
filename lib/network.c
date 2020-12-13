@@ -10,8 +10,7 @@
 #include "network.h"
 
 int network_server_init(int port)
-{
-    struct sockaddr_in server;
+{ struct sockaddr_in server;
     int rc; int sd;
 
     /*
@@ -79,7 +78,7 @@ void network_get_port(int argc, char **argv, int *port)
     }
 }
 
-int network_recv_poll(int sd, void *buf, int size)
+int network_recv(int sd, void *buf, int size)
 {
     int bytes_read;
 

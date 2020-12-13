@@ -19,7 +19,7 @@
 
 int network_server_init(int port);
 int network_accept_client(int sd);
-int network_recv_poll(int sd, void *buf, int size);
+int network_recv(int sd, void *buf, int size);
 int network_send(int sd, void *buf, int size);
 int network_send_cmd_end(int sd);
 void network_get_port(int argc, char **argv, int *port);
