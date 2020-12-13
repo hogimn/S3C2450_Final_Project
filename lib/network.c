@@ -84,18 +84,9 @@ int network_recv_poll(int sd, void *buf, int size)
     int bytes_read;
 
     /* polling recv */
-    while (1)
-    {
-        bytes_read = recv(sd, buf, size, 0);
-        if (bytes_read != -1)
-        {
-            return bytes_read;
-        }
+    bytes_read = recv(sd, buf, size, 0);
 
-        /* for debug */
-        printf("errno: %d\n", errno);
-        sleep(1);
-    }
+    return bytes_read;
 }
 
 int network_send(int sd, void *buf, int size)
