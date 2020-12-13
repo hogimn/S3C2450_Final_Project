@@ -30,7 +30,7 @@
 /* state macro */
 #define STATE_LED_ON            1
 #define STATE_LED_OFF           2
-#define STATE_FAN_ON            3
+#define STATE_FAN_ON            3 
 #define STATE_FAN_OFF           4
 #define STATE_SOLENOID_OPEN     5
 #define STATE_SOLENOID_CLOSE    6
@@ -38,6 +38,10 @@
 #define STATE_DRAIN_CLOSE       8
 #define STATE_HUMIDIFIER_ON     9
 #define STATE_HUMIDIFIER_OFF    10
+
+/* mode macro */
+#define MODE_AUTO   0
+#define MODE_MANUAL 1
 
 void devices_init(void);
 void create_polling_threads(void);
@@ -54,6 +58,8 @@ void play_music(int sd);
 void transfer_list(int sd);
 void transfer_sensor_data(int sd);
 void transfer_camera_data(int sd);
+void transfer_mode_data(int sd);
+void mode_toggle(int sd);
 
 /* periodic thread handler */
 void *humitemp_handler(void *arg); /* every 2 sec */
@@ -87,22 +93,25 @@ struct mq_attr attr = {
 };
 
  /* global variables to indicate the states of functional devices */
-int g_state_led;
-int g_state_fan;
-int g_state_solenoid;
-int g_state_drain;
-int g_state_humidifier;
+volatile int g_state_led;
+volatile int g_state_fan;
+volatile int g_state_solenoid;
+volatile int g_state_drain;
+volatile int g_state_humidifier;
 
 /* 
  * global variables to store most recent sensor data
  * shared between {sensor name}_handler() (polling threads) (writer)
  * and transfer_sensor_data() (reader)
  */
-int g_temp;
-int g_humi;
-int g_photo;
-int g_magnet;
-int g_moisture;
+volatile int g_temp;
+volatile int g_humi;
+volatile int g_photo;
+volatile int g_magnet;
+volatile int g_moisture;
+
+/* global variable to indicate the mode of operation */
+volatile int g_mode; /* MODE_AUTO is default */
 
 int main(int argc, char **argv)
 {
@@ -263,7 +272,7 @@ void message_queue_handler(int mq_cmd)
             g_state_humidifier = STATE_HUMIDIFIER_OFF;
             break;
 
-        default: 
+        default:
             printf("invalid message queue command\n");
             break;
     }
@@ -341,55 +350,59 @@ void *humitemp_handler(void *arg)
         printf("humi: %d, temp: %d\n", g_humi, g_temp);
 
 #if 1   
-        /*
-         * humi is higher than upper limit 
-         * and fan is off state
-         */
-        if (g_humi > humid_upper_fan && 
-            g_state_fan == STATE_FAN_OFF)
+        /* controll functional devices only when mode is auto mode */
+        if (g_mode == MODE_AUTO)
         {
-            cmd = MQ_CMD_FAN_ON;
-            mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
+            /*
+             * humi is higher than upper limit 
+             * and fan is off state
+             */
+            if (g_humi > humid_upper_fan && 
+                    g_state_fan == STATE_FAN_OFF)
+            {
+                cmd = MQ_CMD_FAN_ON;
+                mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
 
-            printf("FAN ON\n");
-        }    
-        /* 
-         * humi gets less than predetermined bound 
-         * and fan is on state 
-         */
-        else if (g_humi < humid_under_fan &&
-                 g_state_fan == STATE_FAN_ON)
-        {
-            cmd = MQ_CMD_FAN_OFF;
-            mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
+                printf("FAN ON\n");
+            }    
+            /* 
+             * humi gets less than predetermined bound 
+             * and fan is on state 
+             */
+            else if (g_humi < humid_under_fan &&
+                    g_state_fan == STATE_FAN_ON)
+            {
+                cmd = MQ_CMD_FAN_OFF;
+                mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
 
-            printf("FAN OFF\n");
-        }
+                printf("FAN OFF\n");
+            }
 #endif
 
-#if 1 /* 
-         * humi is less than lower limit
-         * and humidifer is off state 
-         */
-        if (g_humi < humid_under_humidifier &&
-            g_state_humidifier == STATE_HUMIDIFIER_OFF)
-        {
-            cmd = MQ_CMD_HUMIDIFIER_ON;
-            mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
+#if 1       /* 
+             * humi is less than lower limit
+             * and humidifer is off state 
+             */
+            if (g_humi < humid_under_humidifier &&
+                    g_state_humidifier == STATE_HUMIDIFIER_OFF)
+            {
+                cmd = MQ_CMD_HUMIDIFIER_ON;
+                mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
 
-            printf("humidifier_on\n");
-        }
-        /* 
-         * humi gets higher than predetermined bound 
-         * and humidifer is on state
-         */
-        else if (g_humi > humid_upper_humidifier && 
-                 g_state_humidifier == STATE_HUMIDIFIER_ON)
-        {
-            cmd = MQ_CMD_HUMIDIFIER_OFF;
-            mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
+                printf("humidifier_on\n");
+            }
+            /* 
+             * humi gets higher than predetermined bound 
+             * and humidifer is on state
+             */
+            else if (g_humi > humid_upper_humidifier && 
+                    g_state_humidifier == STATE_HUMIDIFIER_ON)
+            {
+                cmd = MQ_CMD_HUMIDIFIER_OFF;
+                mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
 
-            printf("humidifier_off\n");
+                printf("humidifier_off\n");
+            }
         }
 #endif
         /* store into database table "humitemp" */
@@ -426,29 +439,33 @@ void *photo_handler(void *arg)
         
         printf("photo intensity: %d\n", g_photo); 
         
-        /* 
-         * if photo intensity is less than lower limit 
-         * and LED is currently off state
-         */
-        if (g_photo < intensity_under && 
-            g_state_led == STATE_LED_OFF)
-        {
-            cmd = MQ_CMD_LED_ON;
-            mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
+        /* controll functional devices only when mode is auto mode */
+        if (g_mode == MODE_AUTO)
+        { 
+            /* 
+             * if photo intensity is less than lower limit 
+             * and LED is currently off state
+             */
+            if (g_photo < intensity_under && 
+                    g_state_led == STATE_LED_OFF)
+            {
+                cmd = MQ_CMD_LED_ON;
+                mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
 
-            printf("LED ON\n");
-        }
-        /* 
-         * if photo intensity gets higher than appropriate bound 
-         * and LED is currently on state
-         */
-        else if (g_photo > intensity_upper &&
-                 g_state_led == STATE_LED_ON)
-        {
-            cmd = MQ_CMD_LED_OFF;
-            mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
+                printf("LED ON\n");
+            }
+            /* 
+             * if photo intensity gets higher than appropriate bound 
+             * and LED is currently on state
+             */
+            else if (g_photo > intensity_upper &&
+                    g_state_led == STATE_LED_ON)
+            {
+                cmd = MQ_CMD_LED_OFF;
+                mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
 
-            printf("LED OFF\n");
+                printf("LED OFF\n");
+            }
         }
         
         sleep(1); 
@@ -472,14 +489,20 @@ void *magnetic_handler(void *arg)
     {
         /* if magnet is detected and solenoid is open state */
         g_magnet = mag_valid_detectection();
-        if (g_magnet == MAGNETIC_DETECTED && 
-            g_state_solenoid == STATE_SOLENOID_OPEN)
-        {
-            cmd = MQ_CMD_SOLENOID_CLOSE;
-            mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
 
-            printf("close solenoid\n");
+        /* controll functional devices only when mode is auto mode */
+        if (g_mode == MODE_AUTO)
+        {
+            if (g_magnet == MAGNETIC_DETECTED && 
+                    g_state_solenoid == STATE_SOLENOID_OPEN)
+            {
+                cmd = MQ_CMD_SOLENOID_CLOSE;
+                mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
+
+                printf("close solenoid\n");
+            }
         }
+
         sleep(1); 
     }
 
@@ -499,14 +522,20 @@ void *moisture_handler(void *arg)
     while (1)
     {
         g_moisture = moisture_is_full();
-        /* if moisture is full and drainage is close state */
-        if (g_moisture == MOISTURE_FULL && 
-            g_state_drain == STATE_DRAIN_CLOSE)
+
+        /* controll functional devices only when mode is auto mode */
+        if (g_mode == MODE_AUTO)
         {
-            cmd = MQ_CMD_DRAIN;
-            mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);            
-            printf("drain is open\n");
+            /* if moisture is full and drainage is close state */
+            if (g_moisture == MOISTURE_FULL && 
+                    g_state_drain == STATE_DRAIN_CLOSE)
+            {
+                cmd = MQ_CMD_DRAIN;
+                mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
+                printf("drain is open\n");
+            }
         }
+
         sleep(1);
     }
 
@@ -583,20 +612,52 @@ void *socket_handler(void *arg)
     /* command 6: transfer humi database data to client */
     else if (!strcmp(buf, NETWORK_CMD_HUMI_SERVER_TO_CLIENT))
     {
-        database_data_socket_transfer(sd, DATABASE_SOCKET_HUMI); 
+        database_data_socket_transfer(sd, DATABASE_SOCKET_HUMI);
     }
     /* command 7: transfer temp database data to client */
     else if (!strcmp(buf, NETWORK_CMD_TEMP_SERVER_TO_CLIENT))
     {
-        database_data_socket_transfer(sd, DATABASE_SOCKET_TEMP); 
+        database_data_socket_transfer(sd, DATABASE_SOCKET_TEMP);
+    }
+    /* command 8: transfer mode data to client */
+    else if (!strcmp(buf, NETWORK_CMD_MODE_SERVER_TO_CLIENT))
+    {
+        transfer_mode_data(sd); 
+    }
+    /* command 9: toggle mode between MODE_AUTO and MODE_MANUAL */
+    else if (!strcmp(buf, NETWORK_CMD_MODE_TOGGLE_CLIENT_TO_SERVER))
+    {
+        mode_toggle(sd);
     }
 
-    printf("socket_handler() exit\n");
+    printf("socket_handler() exited\n");
     pthread_exit(0);
+}
+
+void mode_toggle(int sd)
+{
+    g_mode ^= 1;
+    transfer_mode_data(sd);
+}
+
+void transfer_mode_data(int sd)
+{
+    int rc;
+    char buf[NETWORK_BUFSIZE];
+
+    sprintf(buf, "%d\n", g_mode);
+    rc = network_send(sd, buf, strlen(buf));
+    if (rc == -1)
+    {
+        ERR_HANDLE;
+    }
+
+    printf("transfer_mode_data() exited\n");
 }
 
 void transfer_camera_data(int sd)
 {
+    int rc;
     const int height = 144;
     const int width = 176;
     unsigned char src_image[width*height*3];
@@ -613,9 +674,10 @@ void transfer_camera_data(int sd)
          * if client is disconnected, SIGPIPE will be ignored
          * and send will return -1 
          */
-        if (-1 == network_send(sd, src_image, height*width*3))
+        rc = network_send(sd, src_image, height*width*3);
+        if (rc == -1)
         {
-            printf("connection failed\n");
+            ERR_HANDLE;
             break; 
         }
     }
@@ -628,6 +690,7 @@ void transfer_camera_data(int sd)
 
 void transfer_sensor_data(int sd)
 {
+    int rc;
     char buf[NETWORK_BUFSIZE];
     char str_humi[3];
     char str_temp[3];
@@ -655,9 +718,10 @@ void transfer_sensor_data(int sd)
          * if client is disconnected, SIGPIPE will be ignored
          * and send will return -1 
          */
-        if (-1 == network_send(sd, buf, strlen(buf)))
+        rc = network_send(sd, buf, strlen(buf));
+        if (rc == -1)
         {
-            printf("connection failed\n");
+            ERR_HANDLE;
             break; 
         }
 
@@ -743,8 +807,12 @@ void transfer_list(int sd)
      * and send each title to client
      */
     FOREACH_MUSIC
-        sprintf(buf, "%s\n", (const char *)head->data); 
-        network_send(sd, buf, strlen(buf));
+        sprintf(buf, "%s\n", (const char *)head->data);
+        rc = network_send(sd, buf, strlen(buf));
+        if (rc == -1)
+        {
+            ERR_HANDLE;
+        }
         printf("trasnferring... %s\n", buf);
     END_FOREACH_MUSIC
 
@@ -763,7 +831,11 @@ void transfer_list(int sd)
     if (strcmp(current_music, ""))
     {
         sprintf(buf, "%s\n", current_music);
-        network_send(sd, buf, strlen(buf));
+        rc = network_send(sd, buf, strlen(buf));
+        if (rc == -1)
+        {
+            ERR_HANDLE;
+        }
     }
 
     /* notify to client that transfer is over */
@@ -950,7 +1022,7 @@ void message_queue_deinit(void)
 {
     int rc;
 
-    rc = mq_close(mqd_main); 
+    rc = mq_close(mqd_main);
     if (rc == -1)
     {
         ERR_HANDLE;
