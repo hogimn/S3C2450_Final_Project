@@ -1,13 +1,13 @@
-CC		:= arm-none-linux-gnueabi-gcc
+CC:= arm-none-linux-gnueabi-gcc
 
-BUILD	:= build
-SOURCE	:= .
+BUILD:= build
+SOURCE:= .
 
-SOURCES	:= $(shell find $(SOURCE) -name '*.c')
-OBJECTS	:= $(addprefix $(BUILD)/,$(SOURCES:%.c=%.o))
+SOURCES:= $(shell find $(SOURCE) -name '*.c')
+OBJECTS:= $(addprefix $(BUILD)/,$(SOURCES:%.c=%.o))
 
-CFLAGS	:= -Wall -g -Iinc -I./sqlite3/include/
-LDFLAGS	:= -L./sqlite3/lib/ -lsqlite3
+CFLAGS:= -Wall -g -Iinc -I./sqlite3/include/
+#LDFLAGS:=
 
 all: DRIVERS_LIB
 
@@ -18,7 +18,7 @@ DRIVERS_LIB: $(OBJECTS)
 $(BUILD)/%.o: %.c
 	@echo - $<
 	@mkdir -p $(BUILD)/$(SOURCE)
-	@$(CC) $(CFLAGS) -I$(dir $<) -c $< -o $@ $(LDFLAGS)
+	@$(CC) $(CFLAGS) -I$(dir $<) -c $< -o $@
 
 clean:
 	@rm -rf $(BUILD)
