@@ -31,6 +31,8 @@
 #define MQ_CMD_SOLENOID_CLOSE   8
 #define MQ_CMD_HUMIDIFIER_ON    9
 #define MQ_CMD_HUMIDIFIER_OFF   10
+#define MQ_CMD_DRYER_ON         11
+#define MQ_CMD_DRYER_OFF        12
 
 /* state macro */
 #define STATE_LED_ON            MQ_CMD_LED_ON
@@ -43,6 +45,8 @@
 #define STATE_SOLENOID_CLOSE    MQ_CMD_SOLENOID_CLOSE
 #define STATE_HUMIDIFIER_ON     MQ_CMD_HUMIDIFIER_ON
 #define STATE_HUMIDIFIER_OFF    MQ_CMD_HUMIDIFIER_OFF
+#define STATE_DRYER_ON          MQ_CMD_DRYER_ON
+#define STATE_DRYER_OFF         MQ_CMD_DRYER_OFF
 
 /* mode macro */
 #define MODE_AUTO   0
@@ -100,13 +104,24 @@ struct mq_attr attr = {
     .mq_msgsize = MQ_MSG_SIZE,
 };
 
+/*
+ *##################
+ *# Sensor Devices #
+ *##################
+ */
  /* global variables to indicate the states of functional devices */
 volatile int g_state_led;
 volatile int g_state_fan;
 volatile int g_state_solenoid;
 volatile int g_state_drain;
 volatile int g_state_humidifier;
+volatile int g_state_dryer;
 
+/*
+ *######################
+ *# Functional Devices #
+ *######################
+ */
 /* 
  * global variables to store most recent sensor data
  * shared between {sensor name}_handler() (polling threads) (writer)
@@ -271,7 +286,21 @@ void message_queue_handler(int mq_cmd)
 
             printf("HUMIDIFIER OFF\n");
             break;
-            
+
+        case MQ_CMD_DRYER_ON:
+            dryer_on(); 
+            g_state_dryer = STATE_DRYER_ON;
+
+            printf("DRYER ON\n"); 
+            break;
+
+        case MQ_CMD_DRYER_OFF:
+            dryer_on(); 
+            g_state_dryer = STATE_DRYER_OFF;
+
+            printf("DRYER OFF\n"); 
+            break;
+
         default:
             printf("invalid message queue command\n");
             break;
@@ -287,7 +316,7 @@ void *socket_handler(void *arg)
 
     sd = (int)arg;
 
-    bytes_read = network_recv_poll(sd, (void *)buf, NETWORK_BUFSIZE-1);
+    bytes_read = network_recv(sd, (void *)buf, NETWORK_BUFSIZE-1);
     buf[bytes_read] = '\0'; /* null terminated c-string */
 
     cmd = atoi(buf);
@@ -301,51 +330,51 @@ void *socket_handler(void *arg)
             receive_file(sd);
             break;
 
-            /* command 1: transfer music list to client */
+        /* command 1: transfer music list to client */
         case NETWORK_CMD_LIST_SERVER_TO_CLIENT:
             transfer_list(sd);
             break;
 
-            /* command 2: delete file */
+        /* command 2: delete file */
         case NETWORK_CMD_DELETE_CLIENT_TO_SERVER:
             delete_file(sd);
             break;
 
-            /* command 3: play the music */
+        /* command 3: play the music */
         case NETWORK_CMD_PLAY_CLIENT_TO_SERVER:
             play_music(sd);
             break;
 
-            /* command 4: transfer sensor data to client */
+        /* command 4: transfer sensor data to client */
         case NETWORK_CMD_SENSOR_SERVER_TO_CLIENT:
             transfer_sensor_data(sd);
             break;
 
-            /* command 5: transfer camera data to client */
+        /* command 5: transfer camera data to client */
         case NETWORK_CMD_CAMERA_SERVER_TO_CLIENT:
             transfer_camera_data(sd);
             break;
 
-            /* command 6: transfer database data to client */
+        /* command 6: transfer database data to client */
         case NETWORK_CMD_DATABASE_SERVER_TO_CLIENT:
             transfer_database_data(sd);
             break;
 
-            /* command 7: transfer mode data to client */
+        /* command 7: transfer mode data to client */
         case NETWORK_CMD_MODE_SERVER_TO_CLIENT:
             transfer_mode_data(sd); 
             break;
 
-            /* command 8: toggle mode between MODE_AUTO and MODE_MANUAL */
+        /* command 8: toggle mode between MODE_AUTO and MODE_MANUAL */
         case NETWORK_CMD_MODE_TOGGLE_CLIENT_TO_SERVER:
             mode_toggle(sd);
             break;
 
-            /* command 9: transfer state data to client */
+        /* command 9: transfer state data to client */
         case NETWORK_CMD_STATE_SERVER_TO_CLIENT:
             transfer_state_data(sd);
 
-            /* command 10: change device state */
+        /* command 10: change device state */
         case NETWORK_CMD_STATE_CHANGE_CLIENT_TO_SERVER:
             state_change(sd);
             break;
@@ -402,6 +431,8 @@ void *humitemp_handler(void *arg)
     int humid_under_fan = 70;
     int humid_upper_humidifier = 65;
     int humid_under_humidifier = 60;
+    int temp_upper_dryer = 25;
+    int temp_under_dryer = 20;
     char cmd[MQ_MSG_SIZE];
 
     /* measure humi/temp every 1 sec */
@@ -463,6 +494,27 @@ void *humitemp_handler(void *arg)
                     g_state_humidifier == STATE_HUMIDIFIER_ON)
             {
                 sprintf(cmd, "%d", MQ_CMD_HUMIDIFIER_OFF);
+                mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
+            }
+
+            /* 
+             * temp is less than lower limit
+             * and dryer is off state 
+             */
+            if (g_temp < temp_under_dryer &&
+                    g_state_dryer == STATE_DRYER_OFF)
+            {
+                sprintf(cmd, "%d", MQ_CMD_DRYER_ON);
+                mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
+            }
+            /* 
+             * temp gets higher than predetermined bound 
+             * and dryer is on state
+             */
+            else if (g_temp > temp_upper_dryer && 
+                    g_state_dryer == STATE_DRYER_ON)
+            {
+                sprintf(cmd, "%d", MQ_CMD_DRYER_OFF);
                 mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
             }
         }
@@ -608,7 +660,7 @@ void transfer_database_data(int sd)
     int bytes_read;
 
     /* receive command */
-    bytes_read = network_recv_poll(sd, (void *)buf, NETWORK_BUFSIZE-1);
+    bytes_read = network_recv(sd, (void *)buf, NETWORK_BUFSIZE-1);
     buf[bytes_read] = '\0';
 
     sensor = atoi(buf); 
@@ -623,9 +675,9 @@ void transfer_state_data(int sd)
 
     while (1)
     {
-        sprintf(buf, "%d\n%d\n%d\n%d\n%d\n",
+        sprintf(buf, "%d\n%d\n%d\n%d\n%d\n%d\n",
                 g_state_led, g_state_fan, g_state_solenoid,
-                g_state_drain, g_state_humidifier);
+                g_state_drain, g_state_humidifier, g_state_dryer);
 
         rc = network_send(sd, buf, strlen(buf));
         if (rc == -1)
@@ -653,7 +705,7 @@ void state_change(int sd)
     }
 
     /* receive command */
-    bytes_read = network_recv_poll(sd, (void *)buf, NETWORK_BUFSIZE-1);
+    bytes_read = network_recv(sd, (void *)buf, NETWORK_BUFSIZE-1);
     buf[bytes_read] = '\0';
 
     cmd = atoi(buf); 
@@ -764,7 +816,7 @@ void play_music(int sd)
     int bytes_read;
 
     /* receive file name */
-    bytes_read = network_recv_poll(sd, (void *)buf, NETWORK_BUFSIZE-1);
+    bytes_read = network_recv(sd, (void *)buf, NETWORK_BUFSIZE-1);
     buf[bytes_read] = '\0';
 
     strcpy(filename, buf);
@@ -801,7 +853,7 @@ void delete_file(int sd)
     int bytes_read;
 
     /* receive file name */
-    bytes_read = network_recv_poll(sd, (void *)buf, NETWORK_BUFSIZE-1);
+    bytes_read = network_recv(sd, (void *)buf, NETWORK_BUFSIZE-1);
     buf[bytes_read] = '\0';
 
     /* store it to filename */
@@ -888,7 +940,7 @@ void receive_file(int sd)
     pthread_mutex_lock(&recv_trans_lock);
 
     /* receive file name */
-    bytes_read = network_recv_poll(sd, (void *)buf, NETWORK_BUFSIZE-1);
+    bytes_read = network_recv(sd, (void *)buf, NETWORK_BUFSIZE-1);
     buf[bytes_read] = '\0';
 
     /* store it to filename */
@@ -909,7 +961,7 @@ void receive_file(int sd)
     while (1)
     {
         /* read data from client */
-        bytes_read = network_recv_poll(sd, (void *)buf, NETWORK_BUFSIZE-1);
+        bytes_read = network_recv(sd, (void *)buf, NETWORK_BUFSIZE-1);
         /* when client socket is closed */
         if (bytes_read == 0) 
         {
@@ -1082,4 +1134,5 @@ void states_init(void)
     g_state_solenoid = STATE_SOLENOID_CLOSE;
     g_state_drain = STATE_DRAIN_OPEN;
     g_state_humidifier = STATE_HUMIDIFIER_OFF;
+    g_state_dryer = STATE_DRYER_OFF;
 }
