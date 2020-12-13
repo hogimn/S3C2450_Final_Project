@@ -103,7 +103,7 @@ int network_send_cmd_end(int sd)
     int rc;
     char buf[NETWORK_BUFSIZE];
 
-    sprintf(buf, "%s\n", (const char *)NETWORK_CMD_END);
+    sprintf(buf, "%d\n", (const char *)NETWORK_CMD_END);
     rc = network_send(sd, buf, strlen(buf));
 
     return rc; 
