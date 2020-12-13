@@ -16,12 +16,14 @@ int main(void)
         rc = humitemp_read(humitemp);
         if (rc != HUMITEMP_READ_OK)
         {
+            printf("humitemp_read() failed\n");
+            sleep(2);
             continue;
         }
 
         printf("humi: %d, temp: %d\n", humitemp[0], humitemp[1]);
 
-        sleep(1);
+        sleep(2);
     }
 
     humitemp_deinit();

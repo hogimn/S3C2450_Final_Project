@@ -6,23 +6,28 @@ int main(void)
 {
     int fd;
     char buf[5];
+    int count;
     int i;
 
     fd = open("/dev/mds2450_dht11", O_RDWR);
 
     while (1)
     {
-        int count = read(fd, buf, sizeof(buf)); 
-		if(count<5) continue;
-        printf("count: %d\n", count);
+        count = read(fd, buf, sizeof(buf)); 
+        if (count == -1)
+        {
+            printf("read() failed");
+            sleep(2);
+        }
+
         for (i = 0; i < count; i++) 
         {
             printf("%u ", buf[i]);
         }
         printf("\n");
 
-        sleep(1);
+        sleep(2);
     }
-	
-	return 0;
+
+    return 0;
 }
