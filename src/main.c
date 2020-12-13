@@ -15,27 +15,32 @@
 #include "database.h"
 #include "error.h"
 
+/* entire queue size: MQ_MAX_MSG * MQ_MSG_SIZE bytes */
+#define MQ_MAX_MSG  64
+/* 4 byte per message */
+#define MQ_MSG_SIZE 4
+
 /* message queue command */
-#define MQ_CMD_LED_ON           '1'
-#define MQ_CMD_LED_OFF          '2'
-#define MQ_CMD_FAN_ON           '3'
-#define MQ_CMD_FAN_OFF          '4'
-#define MQ_CMD_DRAIN            '5'
-#define MQ_CMD_DRAIN_STOP       '6'
-#define MQ_CMD_SOLENOID_OPEN    '7'
-#define MQ_CMD_SOLENOID_CLOSE   '8'
-#define MQ_CMD_HUMIDIFIER_ON    '9'
-#define MQ_CMD_HUMIDIFIER_OFF   '0'
+#define MQ_CMD_LED_ON           "1"
+#define MQ_CMD_LED_OFF          "2"
+#define MQ_CMD_FAN_ON           "3"
+#define MQ_CMD_FAN_OFF          "4"
+#define MQ_CMD_DRAIN_OPEN       "5"
+#define MQ_CMD_DRAIN_CLOSE      "6"
+#define MQ_CMD_SOLENOID_OPEN    "7"
+#define MQ_CMD_SOLENOID_CLOSE   "8"
+#define MQ_CMD_HUMIDIFIER_ON    "9"
+#define MQ_CMD_HUMIDIFIER_OFF   "10"
 
 /* state macro */
 #define STATE_LED_ON            1
 #define STATE_LED_OFF           2
-#define STATE_FAN_ON            3 
+#define STATE_FAN_ON            3
 #define STATE_FAN_OFF           4
-#define STATE_SOLENOID_OPEN     5
-#define STATE_SOLENOID_CLOSE    6
-#define STATE_DRAIN_OPEN        7
-#define STATE_DRAIN_CLOSE       8
+#define STATE_DRAIN_OPEN        5
+#define STATE_DRAIN_CLOSE       6
+#define STATE_SOLENOID_OPEN     7
+#define STATE_SOLENOID_CLOSE    8
 #define STATE_HUMIDIFIER_ON     9
 #define STATE_HUMIDIFIER_OFF    10
 
@@ -46,7 +51,7 @@
 void devices_init(void);
 void create_polling_threads(void);
 void message_queue_init(void);
-void message_queue_handler(int mq_cmd);
+void message_queue_handler(char *mq_cmd);
 void resources_deinit(int signum);
 void drain_close(void);
 void drain_open(void);
@@ -88,8 +93,8 @@ mqd_t mqd_main;
 const char database_filename[] = "sensor.db";
 
 struct mq_attr attr = {
-    .mq_maxmsg = 64, /* entire queue size: 64*4 bytes */
-    .mq_msgsize = 4, /* 4 byte per message */
+    .mq_maxmsg = MQ_MAX_MSG,
+    .mq_msgsize = MQ_MSG_SIZE,
 };
 
  /* global variables to indicate the states of functional devices */
@@ -116,7 +121,7 @@ volatile int g_mode; /* MODE_AUTO is default */
 int main(int argc, char **argv)
 {
     int sd, new_sd, port;
-    char mq_cmd;
+    char mq_cmd[MQ_MSG_SIZE];
     int rc;
 
     /* override SIGINT handler */
@@ -178,7 +183,7 @@ int main(int argc, char **argv)
         }
 
         /* non-blocking message queue wait */
-        rc = mq_receive(mqd_main, (char*)&mq_cmd, attr.mq_msgsize, 0);
+        rc = mq_receive(mqd_main, (char*)mq_cmd, attr.mq_msgsize, 0);
         if (rc >= 0)
         {
             message_queue_handler(mq_cmd);
@@ -188,93 +193,81 @@ int main(int argc, char **argv)
     return 0;
 }
 
-void message_queue_handler(int mq_cmd)
+void message_queue_handler(char *mq_cmd)
 {
-    switch (mq_cmd)
+    if (!strcmp(mq_cmd, MQ_CMD_LED_ON))
     {
-        case MQ_CMD_LED_ON:
+        led_on();
+        g_state_led = STATE_LED_ON;
 
-            printf("MQ_CMD_LED_ON\n");
+        printf("LED ON\n");
+    }
+    else if (!strcmp(mq_cmd, MQ_CMD_LED_OFF))
+    {
+        led_off();
+        g_state_led = STATE_LED_OFF;
 
-            led_on();
-            g_state_led = STATE_LED_ON;
-            break;
+        printf("LED OFF\n");
+    }
+    else if (!strcmp(mq_cmd, MQ_CMD_FAN_ON))
+    {
+        fan_rotate(FAN_SPEED_FAST);
+        g_state_fan = STATE_FAN_ON;
 
-        case MQ_CMD_LED_OFF:
+        printf("FAN ON\n");
+    }
+    else if (!strcmp(mq_cmd, MQ_CMD_FAN_OFF))
+    {
+        fan_off();
+        g_state_fan = STATE_FAN_OFF;
 
-            printf("MQ_CMD_LED_OFF\n");
+        printf("FAN OFF\n");
+    }
+    else if (!strcmp(mq_cmd, MQ_CMD_DRAIN_OPEN))
+    {
+        drain_open();
+        g_state_drain = STATE_DRAIN_OPEN;
 
-            led_off();
-            g_state_led = STATE_LED_OFF;
-            break;
+        printf("DRAIN OPEN\n");
+    }
+    else if (!strcmp(mq_cmd, MQ_CMD_DRAIN_CLOSE))
+    {
+        drain_close();
+        g_state_drain = STATE_DRAIN_CLOSE;
 
-        case MQ_CMD_FAN_ON:
+        printf("DRAIN CLOSE\n");
+    }
+    else if (!strcmp(mq_cmd, MQ_CMD_SOLENOID_OPEN))
+    {
+        solenoid_open();
+        g_state_solenoid = STATE_SOLENOID_OPEN;
 
-            printf("MQ_CMD_FAN_ON\n");
+        printf("SOLENOID OPEN\n");
+    }
+    else if (!strcmp(mq_cmd, MQ_CMD_SOLENOID_CLOSE))
+    {
+        solenoid_close();
+        g_state_solenoid = STATE_SOLENOID_CLOSE;
 
-            fan_rotate(FAN_SPEED_FAST);
-            g_state_fan = STATE_FAN_ON;
-            break;
+        printf("SOLENOID CLOSE\n");
+    }
+    else if (!strcmp(mq_cmd, MQ_CMD_HUMIDIFIER_ON))
+    {
+        humidifier_on();
+        g_state_humidifier = STATE_HUMIDIFIER_ON;
 
-        case MQ_CMD_FAN_OFF:
+        printf("HUMIDIFIER ON\n");
+    }
+    else if (!strcmp(mq_cmd, MQ_CMD_HUMIDIFIER_OFF))
+    {
+        humidifier_off();
+        g_state_humidifier = STATE_HUMIDIFIER_OFF;
 
-            printf("MQ_CMD_FAN_OFF\n");
-
-            fan_off();
-            g_state_fan = STATE_FAN_OFF;
-            break;
-
-        case MQ_CMD_DRAIN:
-
-            printf("MQ_CMD_DRAIN\n");
-
-            drain_open();
-            g_state_drain = STATE_DRAIN_OPEN;
-            break;
-
-        case MQ_CMD_DRAIN_STOP:
-
-            printf("MQ_CMD_DRAIN_STOP\n");
-
-            drain_close();
-            g_state_drain = STATE_DRAIN_CLOSE;
-            break;
-
-        case MQ_CMD_SOLENOID_OPEN:
-
-            printf("MQ_CMD_SOLENOID_OPEN\n");
-
-            solenoid_open();
-            g_state_solenoid = STATE_SOLENOID_OPEN;
-            break;
-
-        case MQ_CMD_SOLENOID_CLOSE:
-
-            printf("MQ_CMD_SOLENOID_CLOSE\n");
-
-            solenoid_close();
-            g_state_solenoid = STATE_SOLENOID_CLOSE;
-            break;
-
-        case MQ_CMD_HUMIDIFIER_ON:
-
-            printf("MQ_CMD_HUMIDIFIER_ON\n");
-
-            humidifier_on();
-            g_state_humidifier = STATE_HUMIDIFIER_ON;
-            break;
-
-        case MQ_CMD_HUMIDIFIER_OFF:
-
-            printf("MQ_CMD_HUMIDIFIER_OFF\n");
-
-            humidifier_off();
-            g_state_humidifier = STATE_HUMIDIFIER_OFF;
-            break;
-
-        default:
-            printf("invalid message queue command\n");
-            break;
+        printf("HUMIDIFIER OFF\n");
+    }
+    else
+    {
+        printf("invalid message queue command\n");
     }
 }
 
@@ -327,7 +320,7 @@ void *humitemp_handler(void *arg)
     int humid_under_fan = 70;
     int humid_upper_humidifier = 75;
     int humid_under_humidifier = 60;
-    char cmd;
+    char cmd[MQ_MSG_SIZE];
 
     /* initially fan is off state */
     g_state_fan = STATE_FAN_OFF;
@@ -360,10 +353,8 @@ void *humitemp_handler(void *arg)
             if (g_humi > humid_upper_fan && 
                     g_state_fan == STATE_FAN_OFF)
             {
-                cmd = MQ_CMD_FAN_ON;
-                mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
-
-                printf("FAN ON\n");
+                sprintf(cmd, "%s", MQ_CMD_FAN_ON);
+                mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
             }    
             /* 
              * humi gets less than predetermined bound 
@@ -372,10 +363,8 @@ void *humitemp_handler(void *arg)
             else if (g_humi < humid_under_fan &&
                     g_state_fan == STATE_FAN_ON)
             {
-                cmd = MQ_CMD_FAN_OFF;
-                mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
-
-                printf("FAN OFF\n");
+                sprintf(cmd, "%s", MQ_CMD_FAN_OFF);
+                mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
             }
 #endif
 
@@ -386,10 +375,8 @@ void *humitemp_handler(void *arg)
             if (g_humi < humid_under_humidifier &&
                     g_state_humidifier == STATE_HUMIDIFIER_OFF)
             {
-                cmd = MQ_CMD_HUMIDIFIER_ON;
-                mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
-
-                printf("humidifier_on\n");
+                sprintf(cmd, "%s", MQ_CMD_HUMIDIFIER_ON);
+                mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
             }
             /* 
              * humi gets higher than predetermined bound 
@@ -398,10 +385,8 @@ void *humitemp_handler(void *arg)
             else if (g_humi > humid_upper_humidifier && 
                     g_state_humidifier == STATE_HUMIDIFIER_ON)
             {
-                cmd = MQ_CMD_HUMIDIFIER_OFF;
-                mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
-
-                printf("humidifier_off\n");
+                sprintf(cmd, "%s", MQ_CMD_HUMIDIFIER_OFF);
+                mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
             }
         }
 #endif
@@ -421,7 +406,7 @@ void *photo_handler(void *arg)
 #if 1
     int intensity_upper = 800;
     int intensity_under = 500;
-    char cmd;
+    char cmd[MQ_MSG_SIZE];
     
     /* initially led is off state */
     g_state_led = STATE_LED_OFF;
@@ -449,10 +434,8 @@ void *photo_handler(void *arg)
             if (g_photo < intensity_under && 
                     g_state_led == STATE_LED_OFF)
             {
-                cmd = MQ_CMD_LED_ON;
-                mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
-
-                printf("LED ON\n");
+                sprintf(cmd, "%s", MQ_CMD_LED_ON);
+                mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
             }
             /* 
              * if photo intensity gets higher than appropriate bound 
@@ -461,10 +444,8 @@ void *photo_handler(void *arg)
             else if (g_photo > intensity_upper &&
                     g_state_led == STATE_LED_ON)
             {
-                cmd = MQ_CMD_LED_OFF;
-                mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
-
-                printf("LED OFF\n");
+                sprintf(cmd, "%s", MQ_CMD_LED_ON);
+                mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
             }
         }
         
@@ -479,7 +460,7 @@ void *photo_handler(void *arg)
 void *magnetic_handler(void *arg)
 {
 #if 1
-    char cmd;
+    char cmd[MQ_MSG_SIZE];
 
     /* initially solenoid is open state */
     g_state_solenoid = STATE_SOLENOID_OPEN;
@@ -496,10 +477,8 @@ void *magnetic_handler(void *arg)
             if (g_magnet == MAGNETIC_DETECTED && 
                     g_state_solenoid == STATE_SOLENOID_OPEN)
             {
-                cmd = MQ_CMD_SOLENOID_CLOSE;
-                mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
-
-                printf("close solenoid\n");
+                sprintf(cmd, "%s", MQ_CMD_SOLENOID_CLOSE);
+                mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
             }
         }
 
@@ -514,7 +493,8 @@ void *magnetic_handler(void *arg)
 void *moisture_handler(void *arg)
 {
 #if 1
-    char cmd;
+    char cmd[MQ_MSG_SIZE];
+
     /* initially, drainage is open state */
     g_state_drain = STATE_DRAIN_OPEN;
     
@@ -530,9 +510,8 @@ void *moisture_handler(void *arg)
             if (g_moisture == MOISTURE_FULL && 
                     g_state_drain == STATE_DRAIN_CLOSE)
             {
-                cmd = MQ_CMD_DRAIN;
-                mq_send(mqd_main, (char*)&cmd, attr.mq_msgsize, 0);
-                printf("drain is open\n");
+                sprintf(cmd, "%s", MQ_CMD_DRAIN_OPEN);
+                mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
             }
         }
 
