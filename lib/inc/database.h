@@ -3,8 +3,8 @@
 
 #include "sqlite3.h"
 
-#define DATABASE_SOCKET_HUMI 1
-#define DATABASE_SOCKET_TEMP 2
+#define DATABASE_HUMI 1
+#define DATABASE_TEMP 2
 
 sqlite3 *db;
 

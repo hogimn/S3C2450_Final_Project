@@ -150,14 +150,17 @@ void database_data_socket_transfer(int sd, int sensor)
     char *err_msg;
     char sql[DATABASE_SQL_SIZE];
 
-    if (sensor == DATABASE_SOCKET_HUMI)
+    if (sensor == DATABASE_HUMI)
     {
         sprintf(sql, "SELECT humi FROM humitemp;");
     }
-    else if (sensor == DATABASE_SOCKET_TEMP)
+    else if (sensor == DATABASE_TEMP)
     {
         sprintf(sql, "SELECT temp FROM humitemp;");
         printf("select temp");
+    }
+    else {
+        return;
     }
     
     rc = sqlite3_exec(db, sql, 
