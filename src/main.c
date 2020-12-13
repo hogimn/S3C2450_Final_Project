@@ -642,10 +642,8 @@ void *water_handler(void *arg)
     // TODO
     {
         /* 1. close drainage */
-        drain_close();
 
         /* 2. open solenoid */
-        solenoid_open();
     }
 
     printf("water_handler() exited\n");
