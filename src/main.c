@@ -424,7 +424,7 @@ void create_polling_threads(void)
 }
 
 void *humitemp_handler(void *arg)
-{
+{   
     int rc;
     int humitemp[2];
     int humid_upper_fan = 75;
@@ -545,6 +545,13 @@ void *photo_handler(void *arg)
             sleep(1);
             continue;
         }
+	
+	if(check_night())
+	{
+		printf("night time\n");
+		sleep(1);
+		continue;
+	}
         
         printf("photo intensity: %d\n", g_photo); 
         
