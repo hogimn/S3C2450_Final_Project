@@ -4,12 +4,14 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <fcntl.h>
-#include <sys/ioctl.h> #include <sys/time.h>
+#include <sys/ioctl.h> 
+#include <sys/time.h>
 #include <linux/i2c-dev.h>
 #include <unistd.h>
 #include <sys/mman.h>
 #include <string.h>
 #include <termio.h>
+#include <time.h>
 
 #if 0
 	#define gprintk(fmt, x... ) printf(fmt , ## x)
@@ -117,6 +119,21 @@ int photo_get_intensity(void)
 	intensity  = (int) (intensity / 1.2);
 	
 	return intensity;
+}
+
+int check_night(void)
+{
+	time_t timer;
+	struct tm*t;
+	while(1)
+	{
+    timer = time(NULL);
+	t=localtime(&timer);
+	printf("%d\n\n",t->tm_min);
+	if(t->tm_hour>=8 && t->tm_hour<18)	return !NIGHT_TIME;
+	//if(t->tm_min>=22 && t->tm_min<23)	return !NIGHT_TIME;
+	else return NIGHT_TIME;
+	}
 }
 
 void photo_deinit(void)
