@@ -23,15 +23,15 @@ void database_init(const char *filename)
     /* create tables if not exists */
     char *sql = 
         "CREATE TABLE IF NOT EXISTS\
-            humitemp(id INTEGER PRIMARY KEY, humi INT, temp INT);\
+            humi(id INTEGER PRIMARY KEY, humi INT);\
+        CREATE TABLE IF NOT EXISTS\
+            temp(id INTEGER PRIMARY KEY, temp INT);\
          CREATE TABLE IF NOT EXISTS\
             photo(id INTEGER PRIMARY KEY, photo INT);\
          CREATE TABLE IF NOT EXISTS\
-            water(id INTEGER PRIMARY KEY, water INT);\
+            magnet(id INTEGER PRIMARY KEY, magnet INT);\
          CREATE TABLE IF NOT EXISTS\
-            magnetic(id INTEGER PRIMARY KEY, magnetic INT);\
-         CREATE TABLE IF NOT EXISTS\
-            moisutre(id INTEGER PRIMARY KEY, moisture INT);";
+            moisture(id INTEGER PRIMARY KEY, moisture INT);";
 
     rc = sqlite3_exec(db, sql, 0, 0, &err_msg);
     if (rc != SQLITE_OK)
@@ -54,86 +54,38 @@ void database_deinit(void)
     }
 }
 
-void database_humitemp_insert(int humi, int temp)
+void database_insert(int table, int data)
 {
     int rc;
     char *err_msg;
     char sql[DATABASE_SQL_SIZE];
-    sprintf(sql, "INSERT INTO humitemp (humi, temp) VALUES (%d, %d);",
-        humi, temp);
-    
-    rc = sqlite3_exec(db, sql, 0, 0, &err_msg);
-    if (rc != SQLITE_OK)
-    {
-        sqlite3_free(err_msg);
-        printf("%s\n", err_msg);
-        sqlite3_close(db);
-        ERR_HANDLE;
-    }
-}
 
-void database_photo_insert(int photo)
-{
-    int rc;
-    char *err_msg;
-    char sql[DATABASE_SQL_SIZE];
-    sprintf(sql, "INSERT INTO photo (photo) VALUES (%d);",
-        photo);
-    
-    rc = sqlite3_exec(db, sql, 0, 0, &err_msg);
-    if (rc != SQLITE_OK)
+    switch (table)
     {
-        sqlite3_free(err_msg);
-        printf("%s\n", err_msg);
-        sqlite3_close(db);
-        ERR_HANDLE;
-    }
-}
+        case DATABASE_HUMI:
+            sprintf(sql, "INSERT INTO humi (humi) VALUES (%d);", data);
+            break;
 
-void database_water_insert(int water)
-{
-    int rc;
-    char *err_msg;
-    char sql[DATABASE_SQL_SIZE];
-    sprintf(sql, "INSERT INTO water (water) VALUES (%d);",
-        water);
-    
-    rc = sqlite3_exec(db, sql, 0, 0, &err_msg);
-    if (rc != SQLITE_OK)
-    {
-        sqlite3_free(err_msg);
-        printf("%s\n", err_msg);
-        sqlite3_close(db);
-        ERR_HANDLE;
-    }
-}
+        case DATABASE_TEMP:
+            sprintf(sql, "INSERT INTO temp (temp) VALUES (%d);", data);
+            break;
 
-void database_magnetic_insert(int magnetic)
-{
-    int rc;
-    char *err_msg;
-    char sql[DATABASE_SQL_SIZE];
-    sprintf(sql, "INSERT INTO magnetic (magnetic) VALUES (%d);",
-        magnetic);
-    
-    rc = sqlite3_exec(db, sql, 0, 0, &err_msg);
-    if (rc != SQLITE_OK)
-    {
-        sqlite3_free(err_msg);
-        printf("%s\n", err_msg);
-        sqlite3_close(db);
-        ERR_HANDLE;
-    }
-}
+        case DATABASE_PHOTO:
+            sprintf(sql, "INSERT INTO photo (photo) VALUES (%d);", data);
+            break;
 
-void database_moisture_insert(int moisture)
-{
-    int rc;
-    char *err_msg;
-    char sql[DATABASE_SQL_SIZE];
-    sprintf(sql, "INSERT INTO moisture (moisture) VALUES (%d);",
-        moisture);
-    
+        case DATABASE_MAGNET:
+            sprintf(sql, "INSERT INTO magnet (magnet) VALUES (%d);", data);
+            break;
+
+        case DATABASE_MOISTURE:
+            sprintf(sql, "INSERT INTO moisture (moisture) VALUES (%d);", data);
+            break;
+
+        default:
+            return;
+    }
+
     rc = sqlite3_exec(db, sql, 0, 0, &err_msg);
     if (rc != SQLITE_OK)
     {
@@ -142,6 +94,7 @@ void database_moisture_insert(int moisture)
         sqlite3_close(db);
         ERR_HANDLE;
     }
+
 }
 
 void database_data_socket_transfer(int sd, int sensor)
@@ -152,12 +105,23 @@ void database_data_socket_transfer(int sd, int sensor)
 
     if (sensor == DATABASE_HUMI)
     {
-        sprintf(sql, "SELECT humi FROM humitemp;");
+        sprintf(sql, "SELECT humi FROM humi;");
     }
     else if (sensor == DATABASE_TEMP)
     {
-        sprintf(sql, "SELECT temp FROM humitemp;");
-        printf("select temp");
+        sprintf(sql, "SELECT temp FROM temp;");
+    }
+    else if (sensor == DATABASE_PHOTO)
+    {
+        sprintf(sql, "SELECT photo FROM photo;");
+    }
+    else if (sensor == DATABASE_MAGNET)
+    {
+        sprintf(sql, "SELECT magnet FROM magnet;");
+    }
+    else if (sensor == DATABASE_MOISTURE)
+    {
+        sprintf(sql, "SELECT moisture FROM moisture;");
     }
     else {
         return;
