@@ -1123,7 +1123,7 @@ void resources_deinit(int signum)
 
 void drain_open(void)
 {
-    servo_rotate(SERVO_90_DEGREE);
+    servo_rotate(SERVO_45_DEGREE);
 }
 
 void drain_close(void)
