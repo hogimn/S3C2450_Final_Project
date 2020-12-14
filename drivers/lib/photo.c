@@ -129,7 +129,7 @@ int check_night(void)
 	{
     timer = time(NULL);
 	t=localtime(&timer);
-	printf("%d\n\n",t->tm_min);
+	printf("%d\n\n",t->tm_hour);
 	if(t->tm_hour>=8 && t->tm_hour<18)	return !NIGHT_TIME;
 	//if(t->tm_min>=22 && t->tm_min<23)	return !NIGHT_TIME;
 	else return NIGHT_TIME;

@@ -33,6 +33,7 @@
 #define MQ_CMD_HUMIDIFIER_OFF   10
 #define MQ_CMD_DRYER_ON         11
 #define MQ_CMD_DRYER_OFF        12
+#define MQ_CMD_FAN_VERY_FAST    13
 
 /* state macro */
 #define STATE_LED_ON            MQ_CMD_LED_ON
@@ -47,13 +48,17 @@
 #define STATE_HUMIDIFIER_OFF    MQ_CMD_HUMIDIFIER_OFF
 #define STATE_DRYER_ON          MQ_CMD_DRYER_ON
 #define STATE_DRYER_OFF         MQ_CMD_DRYER_OFF
+#define STATE_FAN_VERY_FAST     MQ_CMD_FAN_VERY_FAST
 
 /* mode macro */
 #define MODE_AUTO   0
 #define MODE_MANUAL 1
 
 void devices_init(void);
+void lock_init(void);
 void states_init(void);
+void boundary_init(void);
+void boundary_update(void);
 void create_polling_threads(void);
 void message_queue_init(void);
 void message_queue_handler(int mq_cmd);
@@ -71,6 +76,8 @@ void transfer_camera_data(int sd);
 void transfer_database_data(int sd);
 void transfer_mode_data(int sd);
 void transfer_state_data(int sd);
+void transfer_boundary_data(int sd);
+void receive_boundary_data(int sd);
 void mode_toggle(int sd);
 void state_change(int sd);
 
@@ -136,6 +143,27 @@ volatile int g_moisture;
 /* global variable to indicate the mode of operation */
 volatile int g_mode; /* MODE_AUTO is default */
 
+#define HUMI_UNDER_HUMIDIFER 30
+#define HUMI_UPPER_FAN 45
+#define TEMP_UNDER_DRYER 20
+#define TEMP_UPPER_COOLER 35
+#define PHOTO_UNDER_LED 500
+#define BIAS_HUMI 5
+#define BIAS_TEMP 5
+#define BIAS_PHOTO 200
+
+/* the boundary values whether to control functional devices */
+volatile int g_humi_upper_fan;
+volatile int g_humi_under_fan;
+volatile int g_humi_upper_humidifier;
+volatile int g_humi_under_humidifier;
+volatile int g_temp_upper_dryer;
+volatile int g_temp_under_dryer;
+volatile int g_temp_upper_cooler;
+volatile int g_temp_under_cooler;
+volatile int g_photo_upper_led;
+volatile int g_photo_under_led;
+
 int main(int argc, char **argv)
 {
     int sd, new_sd, port;
@@ -149,13 +177,16 @@ int main(int argc, char **argv)
     pthread_t t_socket;
 
     /* initialize lock */
-    pthread_mutex_init(&recv_trans_lock, 0);
+    lock_init();
 
     /* devices init */
     devices_init();
 
     /* states init */
     states_init();
+
+    /* boundary init */
+    boundary_init();
 
     /*
      * initialize data structure of music
@@ -295,10 +326,17 @@ void message_queue_handler(int mq_cmd)
             break;
 
         case MQ_CMD_DRYER_OFF:
-            dryer_on(); 
+            dryer_off(); 
             g_state_dryer = STATE_DRYER_OFF;
 
             printf("DRYER OFF\n"); 
+            break;
+
+        case MQ_CMD_FAN_VERY_FAST:
+            fan_rotate(FAN_SPEED_VERY_FAST);
+            g_state_fan = STATE_FAN_VERY_FAST;
+
+            printf("FAN VERY FAST MODE\n");
             break;
 
         default:
@@ -379,6 +417,16 @@ void *socket_handler(void *arg)
             state_change(sd);
             break;
 
+        /* command 11: transfer boundary data to client */
+        case NETWORK_CMD_BOUNDARY_SERVER_TO_CLIENT:
+            transfer_boundary_data(sd);
+            break;
+
+        /* command 12: receive boundary data from client */
+        case NETWORK_CMD_BOUNDARY_CLIENT_TO_SERVER:
+            receive_boundary_data(sd);
+            break;
+
         default:
             printf("invalide network command\n");
             break;
@@ -427,12 +475,6 @@ void *humitemp_handler(void *arg)
 {   
     int rc;
     int humitemp[2];
-    int humid_upper_fan = 75;
-    int humid_under_fan = 70;
-    int humid_upper_humidifier = 65;
-    int humid_under_humidifier = 60;
-    int temp_upper_dryer = 25;
-    int temp_under_dryer = 20;
     char cmd[MQ_MSG_SIZE];
 
     /* measure humi/temp every 1 sec */
@@ -459,8 +501,8 @@ void *humitemp_handler(void *arg)
              * humi is higher than upper limit 
              * and fan is off state
              */
-            if (g_humi > humid_upper_fan && 
-                    g_state_fan == STATE_FAN_OFF)
+            if (g_humi > g_humi_upper_fan &&
+                g_state_fan == STATE_FAN_OFF)
             {
                 sprintf(cmd, "%d", MQ_CMD_FAN_ON);
                 mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
@@ -469,9 +511,10 @@ void *humitemp_handler(void *arg)
              * humi gets less than predetermined bound 
              * and fan is on state 
              */
-            else if (g_humi < humid_under_fan &&
-                    g_state_fan == STATE_FAN_ON)
+            else if (g_humi < g_humi_under_fan &&
+                     g_state_fan == STATE_FAN_ON)
             {
+                printf("hoho\n");
                 sprintf(cmd, "%d", MQ_CMD_FAN_OFF);
                 mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
             }
@@ -480,8 +523,8 @@ void *humitemp_handler(void *arg)
              * humi is less than lower limit
              * and humidifer is off state 
              */
-            if (g_humi < humid_under_humidifier &&
-                    g_state_humidifier == STATE_HUMIDIFIER_OFF)
+            if (g_humi < g_humi_under_humidifier &&
+                g_state_humidifier == STATE_HUMIDIFIER_OFF)
             {
                 sprintf(cmd, "%d", MQ_CMD_HUMIDIFIER_ON);
                 mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
@@ -490,8 +533,8 @@ void *humitemp_handler(void *arg)
              * humi gets higher than predetermined bound 
              * and humidifer is on state
              */
-            else if (g_humi > humid_upper_humidifier && 
-                    g_state_humidifier == STATE_HUMIDIFIER_ON)
+            else if (g_humi > g_humi_upper_humidifier &&
+                     g_state_humidifier == STATE_HUMIDIFIER_ON)
             {
                 sprintf(cmd, "%d", MQ_CMD_HUMIDIFIER_OFF);
                 mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
@@ -501,8 +544,8 @@ void *humitemp_handler(void *arg)
              * temp is less than lower limit
              * and dryer is off state 
              */
-            if (g_temp < temp_under_dryer &&
-                    g_state_dryer == STATE_DRYER_OFF)
+            if (g_temp < g_temp_under_dryer &&
+                g_state_dryer == STATE_DRYER_OFF)
             {
                 sprintf(cmd, "%d", MQ_CMD_DRYER_ON);
                 mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
@@ -511,11 +554,42 @@ void *humitemp_handler(void *arg)
              * temp gets higher than predetermined bound 
              * and dryer is on state
              */
-            else if (g_temp > temp_upper_dryer && 
-                    g_state_dryer == STATE_DRYER_ON)
+            else if (g_temp > g_temp_upper_dryer &&
+                     g_state_dryer == STATE_DRYER_ON)
             {
                 sprintf(cmd, "%d", MQ_CMD_DRYER_OFF);
                 mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
+            }
+
+            /* 
+             * temp is higher than upper limit
+             * and fan is on or off state
+             */
+            if (g_temp > g_temp_upper_cooler && (
+                    g_state_fan == STATE_FAN_OFF ||
+                    g_state_fan == STATE_FAN_ON))
+            {
+                sprintf(cmd, "%d", MQ_CMD_FAN_VERY_FAST);
+                mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
+            }
+            /* 
+             * temp gets lower than predetermined bound 
+             * and fan is very_fast state 
+             */
+            else if (g_temp < g_temp_under_cooler &&
+                     g_state_fan == STATE_FAN_VERY_FAST)
+            {
+                if (g_humi < g_humi_under_fan)
+                {
+                printf("haha\n");
+                    sprintf(cmd, "%d", MQ_CMD_FAN_OFF);
+                    mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
+                }
+                else
+                {
+                    sprintf(cmd, "%d", MQ_CMD_FAN_ON);
+                    mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
+                }
             }
         }
 
@@ -532,8 +606,6 @@ void *humitemp_handler(void *arg)
 
 void *photo_handler(void *arg)
 {
-    int intensity_upper = 800;
-    int intensity_under = 500;
     char cmd[MQ_MSG_SIZE];
     
     /* measure photo intensity every 1 sec */
@@ -546,14 +618,14 @@ void *photo_handler(void *arg)
             sleep(1);
             continue;
         }
-	
-	if(check_night())
-	{
-		printf("night time\n");
-		sleep(1);
-		continue;
-	}
-        
+
+//        if (check_night() == NIGHT_TIME)
+//        {
+//            printf("night time\n");
+//            sleep(1);
+//            continue;
+//        }
+
         printf("photo intensity: %d\n", g_photo); 
         
         /* control functional devices only when mode is auto mode */
@@ -563,8 +635,8 @@ void *photo_handler(void *arg)
              * if photo intensity is less than lower limit 
              * and LED is currently off state
              */
-            if (g_photo < intensity_under && 
-                    g_state_led == STATE_LED_OFF)
+            if (g_photo < g_photo_under_led &&
+                g_state_led == STATE_LED_OFF)
             {
                 sprintf(cmd, "%d", MQ_CMD_LED_ON);
                 mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
@@ -573,10 +645,10 @@ void *photo_handler(void *arg)
              * if photo intensity gets higher than appropriate bound 
              * and LED is currently on state
              */
-            else if (g_photo > intensity_upper &&
-                    g_state_led == STATE_LED_ON)
+            else if (g_photo > g_photo_upper_led &&
+                     g_state_led == STATE_LED_ON)
             {
-                sprintf(cmd, "%d", MQ_CMD_LED_ON);
+                sprintf(cmd, "%d", MQ_CMD_LED_OFF);
                 mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
             }
         }
@@ -602,14 +674,15 @@ void *magnetic_handler(void *arg)
         /* control functional devices only when mode is auto mode */
         if (g_mode == MODE_AUTO)
         {
-            if (g_magnet == MAGNETIC_DETECTED && 
-                    g_state_solenoid == STATE_SOLENOID_OPEN)
+            if (g_magnet == MAGNETIC_DETECTED &&
+                g_state_solenoid == STATE_SOLENOID_OPEN)
             {
                 sprintf(cmd, "%d", MQ_CMD_SOLENOID_CLOSE);
                 mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
             }
         }
 
+        printf("magnet is %d\n", g_magnet);
         database_insert(DATABASE_MAGNET, g_magnet);
         sleep(1); 
     }
@@ -631,14 +704,15 @@ void *moisture_handler(void *arg)
         if (g_mode == MODE_AUTO)
         {
             /* if moisture is full and drainage is close state */
-            if (g_moisture == MOISTURE_FULL && 
-                    g_state_drain == STATE_DRAIN_CLOSE)
+            if (g_moisture == MOISTURE_FULL &&
+                g_state_drain == STATE_DRAIN_CLOSE)
             {
                 sprintf(cmd, "%d", MQ_CMD_DRAIN_OPEN);
                 mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
             }
         }
 
+        printf("moisture is %d\n", g_moisture);
         database_insert(DATABASE_MOISTURE, g_moisture);
         sleep(1);
     }
@@ -698,6 +772,58 @@ void transfer_state_data(int sd)
     }
 
     printf("transfer_state_data() exited\n");
+}
+
+void transfer_boundary_data(int sd)
+{
+    int rc;
+    char buf[NETWORK_BUFSIZE];
+
+    sprintf(buf, "%d\n%d\n%d\n%d\n%d\n",
+            g_humi_under_humidifier, g_humi_upper_fan, g_temp_under_dryer,
+            g_temp_upper_cooler, g_photo_under_led);
+
+    rc = network_send(sd, buf, strlen(buf));
+    if (rc == -1)
+    {
+        ERR_HANDLE;
+    }
+
+    printf("transfer_boundary_data() exited\n");
+}
+
+void receive_boundary_data(int sd)
+{
+    char buf[NETWORK_BUFSIZE];
+    char cmd[MQ_MSG_SIZE];
+
+    int bytes_read;
+
+    /* receive command */
+    bytes_read = network_recv(sd, (void *)buf, NETWORK_BUFSIZE-1);
+    buf[bytes_read] = '\0';
+
+    sscanf(buf, "%d%d%d%d%d",
+            &g_humi_under_humidifier, &g_humi_upper_fan, &g_temp_under_dryer,
+            &g_temp_upper_cooler, &g_photo_under_led);
+
+    printf("updated: %d\n%d\n%d\n%d\n%d\n",
+            g_humi_under_humidifier, g_humi_upper_fan, g_temp_under_dryer,
+            g_temp_upper_cooler, g_photo_under_led);
+
+    boundary_update();
+
+    sprintf(cmd, "%d", MQ_CMD_FAN_OFF);
+    mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
+
+    sprintf(cmd, "%d", MQ_CMD_DRYER_OFF);
+    mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
+
+    sprintf(cmd, "%d", MQ_CMD_LED_OFF);
+    mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
+
+    sprintf(cmd, "%d", MQ_CMD_HUMIDIFIER_OFF);
+    mq_send(mqd_main, (char*)cmd, attr.mq_msgsize, 0);
 }
 
 void state_change(int sd)
@@ -831,12 +957,12 @@ void play_music(int sd)
 
     /* 
      * current_music != received_music 
-     * start a new thread which plays received music
+     * play start!
      */
     if (strcmp(current_music, filename))
     {
         strcpy(current_music, filename);
-        sprintf(buf, "madplay -a-7 -r -R 20000 \"./music/%s\"", current_music);
+        sprintf(buf, "madplay -a-7 -r -R 20000 \"%s\"", current_music);
         system(buf);
     }
     /* clear current_music */
@@ -951,8 +1077,8 @@ void receive_file(int sd)
     strcpy(filename, buf);
 
     /* change directory to "./music/" and create file with the name received */
-    mkdir("./music/", 0755);
-    chdir("./music/");
+//    mkdir("./music/", 0755);
+//    chdir("./music/");
 
     fd = open(filename, O_CREAT|O_RDWR, S_IRWXU|S_IRWXG|S_IRWXO);
     if (fd == -1)
@@ -986,7 +1112,7 @@ void receive_file(int sd)
         }
     }
 
-    chdir("..");
+//    chdir("..");
 
     /* add newly downloaded music to music list */
     music_add(filename);
@@ -1123,7 +1249,7 @@ void resources_deinit(int signum)
 
 void drain_open(void)
 {
-    servo_rotate(SERVO_90_DEGREE);
+    servo_rotate(SERVO_45_DEGREE);
 }
 
 void drain_close(void)
@@ -1139,4 +1265,28 @@ void states_init(void)
     g_state_drain = STATE_DRAIN_OPEN;
     g_state_humidifier = STATE_HUMIDIFIER_OFF;
     g_state_dryer = STATE_DRYER_OFF;
+}
+
+void boundary_update(void)
+{
+    g_humi_under_fan = g_humi_upper_fan - BIAS_HUMI;
+    g_humi_upper_humidifier = g_humi_under_humidifier + BIAS_HUMI;
+    g_temp_upper_dryer = g_temp_under_dryer + BIAS_TEMP;
+    g_temp_under_cooler = g_temp_upper_cooler - BIAS_TEMP;
+    g_photo_upper_led = g_photo_under_led + BIAS_PHOTO;
+}
+
+void boundary_init(void)
+{
+    g_humi_upper_fan = HUMI_UPPER_FAN;
+    g_humi_under_humidifier = HUMI_UNDER_HUMIDIFER;
+    g_temp_under_dryer = TEMP_UNDER_DRYER;
+    g_temp_upper_cooler = TEMP_UPPER_COOLER;
+    g_photo_under_led = PHOTO_UNDER_LED;
+    boundary_update();
+}
+
+void lock_init(void)
+{
+    pthread_mutex_init(&recv_trans_lock, 0);
 }

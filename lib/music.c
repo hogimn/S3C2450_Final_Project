@@ -31,7 +31,7 @@ void music_get_from_directory(void)
     char *ptr_str; 
 
     /* open music directory */
-    dir = opendir("./music/");
+    dir = opendir("./");
     if (dir == NULL)
     {
         /* no music entry */
@@ -63,6 +63,9 @@ void music_add(char *name)
     char *new_data;
     char *temp;
 
+    /* critical section */
+    pthread_mutex_lock(&music_lock);
+
     for (; head != NULL; head=head->next)
     {
         temp = (char *)head->data;
@@ -77,9 +80,6 @@ void music_add(char *name)
     new_data = (char *)malloc(strlen(name)+1);
     strcpy(new_data, name);
 
-    /* critical section */
-    pthread_mutex_lock(&music_lock);
-
     list_ins_next(list, list->tail, new_data);
 
     pthread_mutex_unlock(&music_lock);
@@ -93,7 +93,10 @@ void music_remove(char *name)
     ListElmt *prehead = NULL;
     void *data_removed;
     
-    sprintf(path, "./music/%s", name);
+    /* critical section */
+    pthread_mutex_lock(&music_lock);
+
+    sprintf(path, "./%s", name);
 
     /* delete physical file */
     rc = remove(path);
@@ -113,6 +116,8 @@ void music_remove(char *name)
     }
 
     free(data_removed);
+
+    pthread_mutex_unlock(&music_lock);
 }
 
 void music_print(void)
