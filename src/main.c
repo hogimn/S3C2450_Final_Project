@@ -105,9 +105,9 @@ struct mq_attr attr = {
 };
 
 /*
- *##################
- *# Sensor Devices #
- *##################
+ *######################
+ *# Functional Devices #
+ *######################
  */
  /* global variables to indicate the states of functional devices */
 volatile int g_state_led;
@@ -118,9 +118,9 @@ volatile int g_state_humidifier;
 volatile int g_state_dryer;
 
 /*
- *######################
- *# Functional Devices #
- *######################
+ *##################
+ *# Sensor Devices #
+ *##################
  */
 /* 
  * global variables to store most recent sensor data
@@ -519,8 +519,9 @@ void *humitemp_handler(void *arg)
             }
         }
 
-        /* store into database table "humitemp" */
-        database_humitemp_insert(g_humi, g_temp);
+        /* store into database table "humi"/"temp" */
+        database_insert(DATABASE_HUMI, g_humi);
+        database_insert(DATABASE_TEMP, g_temp);
 
         sleep(2);
     }
@@ -580,6 +581,7 @@ void *photo_handler(void *arg)
             }
         }
         
+        database_insert(DATABASE_PHOTO, g_photo); 
         sleep(1); 
     }
 
@@ -608,6 +610,7 @@ void *magnetic_handler(void *arg)
             }
         }
 
+        database_insert(DATABASE_MAGNET, g_magnet);
         sleep(1); 
     }
 
@@ -636,6 +639,7 @@ void *moisture_handler(void *arg)
             }
         }
 
+        database_insert(DATABASE_MOISTURE, g_moisture);
         sleep(1);
     }
 
@@ -776,8 +780,6 @@ void transfer_sensor_data(int sd)
 {
     int rc;
     char buf[NETWORK_BUFSIZE];
-    char str_humi[3];
-    char str_temp[3];
 
     /* loop while client is connected */
     while (1)
@@ -789,12 +791,9 @@ void transfer_sensor_data(int sd)
             continue;
         }
 
-        /* humi, temp integer to string */
-        itoa(g_humi, str_humi);
-        itoa(g_temp, str_temp);
-
         /* fill the buffer to send to client */
-        sprintf(buf, "%s\n%s\n", str_humi, str_temp);
+        sprintf(buf, "%d\n%d\n%d\n%d\n%d\n", 
+            g_humi, g_temp, g_photo, g_magnet, g_moisture);
 
         /* 
          * if client is disconnected, SIGPIPE will be ignored

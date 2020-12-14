@@ -10,8 +10,10 @@
 #include "network.h"
 
 int network_server_init(int port)
-{ struct sockaddr_in server;
-    int rc; int sd;
+{ 
+    struct sockaddr_in server;
+    int rc; 
+    int sd;
 
     /*
      * when client socket is closed during connection
@@ -27,6 +29,13 @@ int network_server_init(int port)
     {
         return sd;
     } 
+
+    rc = setsockopt(sd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int));
+    if (rc == -1)
+    {
+        return rc; 
+    }
+
     /* bind an address to the socket */
     bzero((char *)&server, sizeof(struct sockaddr_in));
     server.sin_family = AF_INET;
