@@ -84,7 +84,6 @@ void state_change(int sd);
 /* periodic thread handler */
 void *humitemp_handler(void *arg); /* every 2 sec */
 void *photo_handler(void *arg);    /* every 1 sec */
-void *water_handler(void *arg);    /* every 1 sec */
 void *magnetic_handler(void *arg); /* every 1 sec */
 void *moisture_handler(void *arg); /* every 1 sec */
 
@@ -452,8 +451,6 @@ void create_polling_threads(void)
     pthread_t t_magnetic;
     /* thread to watch soil moisture sensor */
     pthread_t t_moisture;
-    /* thread to give water every predetermined interval */
-    pthread_t t_water;
 
     pthread_create(&t_humitemp, (void *)NULL, 
             humitemp_handler, (void *)NULL);
@@ -466,9 +463,6 @@ void create_polling_threads(void)
 
     pthread_create(&t_moisture, (void *)NULL, 
             moisture_handler, (void *)NULL);
-
-    pthread_create(&t_water, (void *)NULL, 
-            water_handler, (void *)NULL);
 }
 
 void *humitemp_handler(void *arg)
@@ -718,20 +712,6 @@ void *moisture_handler(void *arg)
     }
 
     printf("moisture_handler() exited\n");
-    pthread_exit(0);
-}
-
-void *water_handler(void *arg)
-{
-    /* give water at specific time */
-    // TODO
-    {
-        /* 1. close drainage */
-
-        /* 2. open solenoid */
-    }
-
-    printf("water_handler() exited\n");
     pthread_exit(0);
 }
 
