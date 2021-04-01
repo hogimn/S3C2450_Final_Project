@@ -14,6 +14,8 @@
 ├── lib
 │   └── inc
 ├── samples
+│   └── sqlite3
+│       ├── ...
 └── src
     └── music
 
@@ -23,7 +25,7 @@
 Directory | Explan.
 ----------|------------
 ***datasheet*** | Datasheets for Devices
-***drivers*** | Kernel Device Driver and Their Library
+***drivers*** | Linux Device Driver and Their Library
 ***lib*** | Other General Library for main
 ***samples*** | Sample Code of Drivers
 ***src*** | Directory where main.c is
@@ -42,17 +44,14 @@ saveenv (optional)
 In your ubuntu host machine,    
 network interface ip address which is connected to your MDS2450 board is to be 192.168.100.2.
 
-### 2. Modify kernel source code to use platform device driver statically ###
-Refer to [here](https://github.com/hogimn/MDS-Embedded-Systems-Final-Project/tree/main/drivers).
-
-### 3. Build and deploy ###
+### 2. Build and deploy ###
 In the top directory of project,
 ```
 make
 make deploy
 ```
 
-### 4. Insert realtek driver module RTL8192CU ###
+### 3. Insert realtek driver module RTL8192CU ###
 You should find your Wi-Fi SSID (Service Set IDentifier) and password.    
 You can easily find your SSID using smartphone.    
 The password is used to generate PSK (pre-shared key).    
@@ -90,6 +89,19 @@ Test ping
 ```
 ping 192.168.0.1
 ```
+
+### 4. Insert linux device driver module
+```
+insmod mds2450_dht11.ko
+insmod mds2450_sg90.ko
+insmod mds2450_mg995.ko
+insmod mds2450_szh_rlbg_012.ko
+insmod mds2450_leadcool120.ko
+insmod mds2450_szh_ssbh_040.ko
+insmod mds2450_fc_28.ko
+insmod mds2450_humidifier.ko
+```
+
 ### 5. Run your program ###
 In your target,
 ```
