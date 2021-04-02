@@ -1,4 +1,5 @@
-# MDS-Embedded-Systems-Final-Project
+# Smart Planter 
+This repository contains the final project our team worked in Embedded S/W course at Hancom Academy.
 
 ### Entire Directory Tree
 ```
